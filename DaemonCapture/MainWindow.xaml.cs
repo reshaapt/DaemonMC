@@ -16,10 +16,13 @@ public partial class MainWindow : Window
 
     private readonly ObservableCollection<PacketSnapshotViewModel> _packets = new();
     private readonly ObservableCollection<PacketStatViewModel> _packetStats = new();
+    private readonly ObservableCollection<BlockedPacketViewModel> _blockedPackets = new();
     private readonly Dictionary<string, PacketStatViewModel> _statsByPacket = new();
+    private readonly HashSet<int> _blockedPacketIds = new();
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private PacketTelemetryServer? _packetTelemetryServer;
     private bool _isInitialized;
+    private bool _isFrozen;
     private int _nextIndex = 1;
 
     public MainWindow()
@@ -36,6 +39,7 @@ public partial class MainWindow : Window
     private void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
     {
         PacketStatsList.ItemsSource = _packetStats;
+        BlockedPacketsList.ItemsSource = _blockedPackets;
 
         _packetTelemetryServer = new PacketTelemetryServer();
         _packetTelemetryServer.ConnectionChanged += connected =>
@@ -61,6 +65,9 @@ public partial class MainWindow : Window
 
     private void AddSnapshot(PacketSnapshot snapshot)
     {
+        if (_isFrozen || _blockedPacketIds.Contains(snapshot.PacketId))
+            return;
+
         PacketSnapshotViewModel model = new(_nextIndex++, snapshot);
         _packets.Add(model);
 
@@ -84,6 +91,49 @@ public partial class MainWindow : Window
 
         PacketsView.Refresh();
         ScrollToLatestVisiblePacket(model);
+        UpdateFooter();
+    }
+
+    private void Freeze_OnChanged(object sender, RoutedEventArgs e)
+    {
+        _isFrozen = FreezeCheckBox.IsChecked == true;
+    }
+
+    private void BlockSelectedPacket_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (PacketGrid.SelectedItem is not PacketSnapshotViewModel packet)
+            return;
+
+        AddBlockedPacket(packet.PacketId, packet.PacketName);
+    }
+
+    private void RemoveBlockedPacket_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (BlockedPacketsList.SelectedItem is not BlockedPacketViewModel blockedPacket)
+            return;
+
+        _blockedPacketIds.Remove(blockedPacket.PacketId);
+        _blockedPackets.Remove(blockedPacket);
+    }
+
+    private void AddBlockedPacket(int packetId, string packetName)
+    {
+        if (!_blockedPacketIds.Add(packetId))
+            return;
+
+        _blockedPackets.Add(new BlockedPacketViewModel(packetId, packetName));
+
+        for (int i = _packets.Count - 1; i >= 0; i--)
+        {
+            if (_packets[i].PacketId == packetId)
+                _packets.RemoveAt(i);
+        }
+
+        if (PacketGrid.SelectedItem is PacketSnapshotViewModel selectedPacket && selectedPacket.PacketId == packetId)
+            PacketGrid.SelectedItem = null;
+
+        PacketsView.Refresh();
+        TotalPacketsText.Text = _packets.Count.ToString();
         UpdateFooter();
     }
 
@@ -286,4 +336,17 @@ public sealed class PacketStatViewModel
     public string Name { get; }
 
     public int Count { get; set; }
+}
+
+public sealed class BlockedPacketViewModel
+{
+    public BlockedPacketViewModel(int packetId, string packetName)
+    {
+        PacketId = packetId;
+        Name = packetName;
+    }
+
+    public int PacketId { get; }
+
+    public string Name { get; }
 }
