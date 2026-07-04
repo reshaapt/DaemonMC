@@ -669,6 +669,35 @@ namespace DaemonMC.Network
             return action;
         }
 
+        public List<LegacySlot> ReadLegacySlots(int rawID)
+        {
+            bool hasLegacySlots = true;
+            var legacySlots = new List<LegacySlot>();
+
+            if (protocolVersion >= Info.v1_26_30)
+            {
+                 hasLegacySlots = ReadBool();
+            }
+
+            if (hasLegacySlots && rawID != 0)
+            {
+                int legacyCount = ReadVarInt();
+
+                for (int i = 0; i < legacyCount; i++)
+                {
+                    LegacySlot legacySlot = new LegacySlot();
+                    legacySlot.ContainerId = ReadByte();
+                    for (int a = 0; a < ReadVarInt(); a++)
+                    {
+                        legacySlot.Slot[i] = ReadByte();
+                    }
+                    legacySlots.Add(legacySlot);
+                }
+            }
+
+            return legacySlots;
+        }
+
         public T? ReadOptional<T>(Func<T> readFunction)
         {
             return ReadBool() ? readFunction() : default;
