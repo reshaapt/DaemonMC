@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using DaemonCapture.Telemetry;
 using DaemonMC.Network;
 
@@ -121,9 +124,8 @@ public partial class MainWindow : Window
         }
 
         TotalPacketsText.Text = _packets.Count.ToString();
-        PacketsView.Refresh();
 
-        if (latestModel != null)
+        if (latestModel != null && IsPacketVisible(latestModel))
             ScrollToLatestVisiblePacket(latestModel);
 
         UpdateFooter();
@@ -157,6 +159,20 @@ public partial class MainWindow : Window
         AddBlockedPacket(packet.PacketId, packet.PacketName);
     }
 
+    private void AddBlockedPacketId_OnClick(object sender, RoutedEventArgs e)
+    {
+        AddBlockedPacketFromInput();
+    }
+
+    private void BlockPacketIdBox_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+            return;
+
+        e.Handled = true;
+        AddBlockedPacketFromInput();
+    }
+
     private void RemoveBlockedPacket_OnClick(object sender, RoutedEventArgs e)
     {
         if (BlockedPacketsList.SelectedItem is not BlockedPacketViewModel blockedPacket)
@@ -164,6 +180,25 @@ public partial class MainWindow : Window
 
         _blockedPacketIds.Remove(blockedPacket.PacketId);
         _blockedPackets.Remove(blockedPacket);
+    }
+
+    private void ClearBlockedPackets_OnClick(object sender, RoutedEventArgs e)
+    {
+        _blockedPacketIds.Clear();
+        _blockedPackets.Clear();
+    }
+
+    private void AddBlockedPacketFromInput()
+    {
+        string input = BlockPacketIdBox.Text.Trim();
+        if (!TryParsePacketId(input, out int packetId))
+        {
+            BlockPacketIdBox.SelectAll();
+            return;
+        }
+
+        AddBlockedPacket(packetId, PacketSnapshotViewModel.ResolvePacketName(packetId));
+        BlockPacketIdBox.Clear();
     }
 
     private void AddBlockedPacket(int packetId, string packetName)
@@ -182,9 +217,21 @@ public partial class MainWindow : Window
         if (PacketGrid.SelectedItem is PacketSnapshotViewModel selectedPacket && selectedPacket.PacketId == packetId)
             PacketGrid.SelectedItem = null;
 
-        PacketsView.Refresh();
         TotalPacketsText.Text = _packets.Count.ToString();
         UpdateFooter();
+    }
+
+    private static bool TryParsePacketId(string input, out int packetId)
+    {
+        packetId = 0;
+
+        if (string.IsNullOrWhiteSpace(input))
+            return false;
+
+        if (input.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            return int.TryParse(input[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out packetId);
+
+        return int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out packetId);
     }
 
     private bool FilterPacket(object item)
@@ -257,11 +304,16 @@ public partial class MainWindow : Window
 
     private void ScrollToLatestVisiblePacket(PacketSnapshotViewModel latestPacket)
     {
-        if (!PacketsView.Contains(latestPacket))
-            return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (IsPacketVisible(latestPacket))
+                PacketGrid.ScrollIntoView(latestPacket);
+        }, DispatcherPriority.Background);
+    }
 
-        PacketGrid.UpdateLayout();
-        PacketGrid.ScrollIntoView(latestPacket);
+    private bool IsPacketVisible(PacketSnapshotViewModel packet)
+    {
+        return FilterPacket(packet);
     }
 
     private void MainWindow_OnClosing(object? sender, CancelEventArgs e)
@@ -273,6 +325,8 @@ public partial class MainWindow : Window
 
 public sealed class PacketSnapshotViewModel
 {
+    private const int MaxHexDumpBytes = 4096;
+
     public PacketSnapshotViewModel(int index, PacketSnapshot snapshot)
     {
         Index = index;
@@ -310,7 +364,7 @@ public sealed class PacketSnapshotViewModel
 
     public string HexPreview => Buffer.Length == 0 ? "-" : ToHex(Buffer, Math.Min(Buffer.Length, 16)).Replace(Environment.NewLine, " ");
 
-    public string HexDump => Buffer.Length == 0 ? "No payload captured." : BuildHexDump(Buffer);
+    public string HexDump => Buffer.Length == 0 ? "No payload captured." : BuildHexDump(Buffer, MaxHexDumpBytes);
 
     public string SearchText => $"{Index} {PacketId} {PacketName} {Direction} {Size} {HexPreview}";
 
@@ -330,13 +384,14 @@ public sealed class PacketSnapshotViewModel
             : $"Unknown_{packetId}";
     }
 
-    private static string BuildHexDump(byte[] data)
+    private static string BuildHexDump(byte[] data, int maxBytes)
     {
         StringBuilder builder = new();
+        int byteCount = Math.Min(data.Length, maxBytes);
 
-        for (int offset = 0; offset < data.Length; offset += 16)
+        for (int offset = 0; offset < byteCount; offset += 16)
         {
-            int count = Math.Min(16, data.Length - offset);
+            int count = Math.Min(16, byteCount - offset);
             builder.Append(offset.ToString("X8"));
             builder.Append("  ");
 
@@ -360,6 +415,9 @@ public sealed class PacketSnapshotViewModel
 
             builder.AppendLine();
         }
+
+        if (data.Length > byteCount)
+            builder.AppendLine($"... truncated, showing {byteCount:N0} of {data.Length:N0} bytes");
 
         return builder.ToString();
     }
