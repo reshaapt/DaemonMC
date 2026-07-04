@@ -1,4 +1,5 @@
-﻿using System.Buffers;
+using System.Buffers;
+using System.IO;
 using System.IO.Pipelines;
 using System.IO.Pipes;
 using System.Threading.Channels;
@@ -9,7 +10,8 @@ namespace DaemonCapture.Telemetry;
 public class PacketTelemetryServer
 {
     public const string PipeName = "DaemonMC_PacketTelemetryPipe";
-    
+
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly Channel<PacketSnapshot> _channel;
 
     public PacketTelemetryServer()
@@ -22,56 +24,108 @@ public class PacketTelemetryServer
         });
     }
 
-    public async Task Listener()
+    public ChannelReader<PacketSnapshot> Snapshots => _channel.Reader;
+
+    public event Action<bool>? ConnectionChanged;
+
+    public Task Listener(CancellationToken cancellationToken = default)
     {
-        while (true)
+        return Task.Run(() => ListenAsync(cancellationToken), cancellationToken);
+    }
+
+    public void Stop()
+    {
+        _cancellationTokenSource.Cancel();
+    }
+
+    private async Task ListenAsync(CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource linkedTokenSource =
+            CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token, cancellationToken);
+
+        while (!linkedTokenSource.IsCancellationRequested)
         {
             await using var pipe = new NamedPipeServerStream(pipeName: PipeName, PipeDirection.In,
                 maxNumberOfServerInstances: 1, PipeTransmissionMode.Byte,
                 options: PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-            
-            await pipe.WaitForConnectionAsync();
-            
+
+            await pipe.WaitForConnectionAsync(linkedTokenSource.Token);
+            ConnectionChanged?.Invoke(true);
+
             PipeReader reader = PipeReader.Create(pipe, new StreamPipeReaderOptions(leaveOpen: true));
 
-            while (true)
+            try
             {
-                ReadResult result = await reader.ReadAsync();
-                ReadOnlySequence<byte> buffer = result.Buffer;
-
-                SequenceReader<byte> seq = new(buffer);
-
-                while (seq.Remaining >= 6)
+                while (!linkedTokenSource.IsCancellationRequested)
                 {
-                    seq.TryRead(out byte packetType);
-                    seq.TryReadLittleEndian(out int packetId);
-                    seq.TryRead(out byte direction);
+                    ReadResult result = await reader.ReadAsync(linkedTokenSource.Token);
+                    ReadOnlySequence<byte> buffer = result.Buffer;
 
-                    Console.WriteLine($"Received: {(PacketType)packetType}, {packetId}, {(PacketDirection)direction}");
+                    SequencePosition consumed = buffer.Start;
+                    SequencePosition examined = buffer.End;
+
+                    while (TryReadSnapshot(buffer.Slice(consumed), out PacketSnapshot? snapshot, out SequencePosition next))
+                    {
+                        consumed = next;
+                        await _channel.Writer.WriteAsync(snapshot!, linkedTokenSource.Token);
+                    }
+
+                    reader.AdvanceTo(consumed, examined);
+
+                    if (result.IsCompleted)
+                        break;
                 }
-
-                reader.AdvanceTo(seq.Position, buffer.End);
-
-                if (result.IsCompleted)
-                    break;
             }
-            
-
-            /*
-            SequenceReader<byte> readerSeq = new SequenceReader<byte>(buffer);
-            readerSeq.TryRead(out byte packetType);
-            readerSeq.TryReadLittleEndian(out int packetId);
-            readerSeq.TryRead(out byte direction);
-            
-            var snapshot = new PacketSnapshot
+            finally
             {
-                PacketType = (PacketType)packetType,
-                PacketId = packetId,
-                Direction = (PacketDirection)direction
-            };
-            
-            Console.WriteLine($"[{DateTime.Now}] Received packet snapshot: Type={snapshot.PacketType}, Id={snapshot.PacketId}, Direction={snapshot.Direction}");
-        */
+                ConnectionChanged?.Invoke(false);
+            }
         }
+    }
+
+    private static bool TryReadSnapshot(ReadOnlySequence<byte> buffer, out PacketSnapshot? snapshot, out SequencePosition next)
+    {
+        snapshot = null;
+        next = buffer.Start;
+
+        if (buffer.Length < 4)
+            return false;
+
+        SequenceReader<byte> reader = new(buffer);
+        if (!reader.TryReadLittleEndian(out int frameLength))
+            return false;
+
+        if (frameLength < 17)
+            throw new InvalidDataException($"Invalid telemetry frame length {frameLength}.");
+
+        if (reader.Remaining < frameLength)
+            return false;
+
+        ReadOnlySequence<byte> frame = buffer.Slice(reader.Position, frameLength);
+        SequenceReader<byte> frameReader = new(frame);
+
+        frameReader.TryReadLittleEndian(out int packetId);
+        frameReader.TryRead(out byte direction);
+        frameReader.TryReadLittleEndian(out long timestamp);
+        frameReader.TryReadLittleEndian(out int payloadLength);
+
+        if (payloadLength < 0 || frameReader.Remaining < payloadLength)
+            throw new InvalidDataException($"Invalid telemetry payload length {payloadLength}.");
+
+        byte[] payload = Array.Empty<byte>();
+        if (payloadLength > 0)
+            payload = frame.Slice(frameLength - payloadLength, payloadLength).ToArray();
+
+        snapshot = new PacketSnapshot
+        {
+            PacketType = PacketType.Bedrock,
+            PacketId = packetId,
+            Direction = (PacketDirection)direction,
+            Timestamp = timestamp,
+            Buffer = payload
+        };
+
+        next = buffer.GetPosition(4 + frameLength);
+        return true;
     }
 }

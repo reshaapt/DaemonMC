@@ -11,15 +11,17 @@ public static class PacketTelemetryProducer
         _writer = writer;
     }
 
-    public static void Produce(PacketDirection direction, PacketType packetType, int packetId)
+    public static void Produce(PacketDirection direction, PacketType packetType, int packetId, byte[]? buffer = null)
     {
         var snap = new PacketSnapshot()
         {
             Direction = direction,
             PacketType = packetType,
-            PacketId = packetId
+            PacketId = packetId,
+            Buffer = buffer,
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 
-        var a= _writer.TryWrite(snap);
+        _writer.TryWrite(snap);
     }
 }

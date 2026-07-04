@@ -46,6 +46,7 @@ namespace DaemonMC.Network
                     switch (handler)
                     {
                         case PacketHandler.Player when decoder.player != null:
+                            PacketTelemetryProducer.Produce(PacketDirection.Received, PacketType.Bedrock, Id, decoder.buffer);
                             decoder.player.HandlePacket(this);
                             break;
                         case PacketHandler.Bedrock:
@@ -92,8 +93,6 @@ namespace DaemonMC.Network
                             encoder.PacketId(Id);
                             break;
                     }
-                    
-                    PacketTelemetryProducer.Produce(PacketDirection.Sent, PacketType.Bedrock, Id);
                     Encode(encoder);
                     switch (this)
                     {
@@ -117,6 +116,7 @@ namespace DaemonMC.Network
                             encoder.handlePacket("raknet");
                             break;
                         default:
+                            PacketTelemetryProducer.Produce(PacketDirection.Sent, PacketType.Bedrock, Id, encoder.byteStream.ToArray()[..(int)encoder.byteStream.Position]);
                             encoder.handlePacket();
                             break;
                     }
@@ -126,6 +126,7 @@ namespace DaemonMC.Network
 
         protected abstract void Decode(PacketDecoder decoder);
         protected abstract void Encode(PacketEncoder encoder);
+
     }
 
     public enum PacketHandler

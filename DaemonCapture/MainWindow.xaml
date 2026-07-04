@@ -1,12 +1,382 @@
-﻿<Window x:Class="DaemonCapture.MainWindow"
+<Window x:Class="DaemonCapture.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:DaemonCapture"
-        mc:Ignorable="d" Loaded="MainWindow_OnLoaded"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        mc:Ignorable="d"
+        Loaded="MainWindow_OnLoaded"
+        Closing="MainWindow_OnClosing"
+        Title="DaemonCapture"
+        Height="760"
+        Width="1180"
+        MinHeight="620"
+        MinWidth="960"
+        Background="#0D1117">
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E6EDF3" />
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="#0D1117" />
+            <Setter Property="Foreground" Value="#30363D" />
+            <Setter Property="Width" Value="12" />
+            <Setter Property="MinWidth" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="#0D1117">
+                            <Track x:Name="PART_Track"
+                                   IsDirectionReversed="True"
+                                   Orientation="{TemplateBinding Orientation}">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Opacity="0" />
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Background="#30363D">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="6"
+                                                        Margin="2" />
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Opacity="0" />
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="MinWidth" Value="84" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="Background" Value="#161B22" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="MinWidth" Value="126" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Background" Value="#161B22" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Background" Value="#161B22" />
+                        <Setter Property="Foreground" Value="#E6EDF3" />
+                        <Setter Property="Padding" Value="8,5" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#1F6FEB" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#21262D" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Background="#161B22"
+                                          BorderBrush="#30363D"
+                                          BorderThickness="1"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="28" />
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Margin="8,4,4,4"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+                                    <Path Grid.Column="1"
+                                          Width="9"
+                                          Height="5"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Fill="#8B949E"
+                                          Data="M 0 0 L 4.5 5 L 9 0 Z" />
+                                </Grid>
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   PopupAnimation="Slide">
+                                <Border MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="#161B22"
+                                        BorderBrush="#30363D"
+                                        BorderThickness="1">
+                                    <ScrollViewer>
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="7,5" />
+            <Setter Property="Background" Value="#0D1117" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="CaretBrush" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+        </Style>
+        <Style x:Key="MetricBlock" TargetType="Border">
+            <Setter Property="Background" Value="#161B22" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="14,10" />
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="#161B22" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Background" Value="#161B22" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder"
+                                Background="#161B22"
+                                BorderBrush="#30363D"
+                                BorderThickness="0,0,1,1"
+                                Padding="12,7">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#0D1117" />
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#1F6FEB" />
+                                <Setter Property="Panel.ZIndex" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#21262D" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ListView">
+            <Setter Property="Background" Value="#0D1117" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+        </Style>
+        <Style TargetType="ListViewItem">
+            <Setter Property="Background" Value="#0D1117" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+        </Style>
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="#161B22" />
+            <Setter Property="Foreground" Value="#E6EDF3" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+        </Style>
+    </Window.Resources>
 
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,14">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Ellipse x:Name="StatusDot" Width="10" Height="10" Fill="#B73A3A" Margin="0,0,8,0" />
+                <TextBlock x:Name="StatusText" Text="Pipe wartet" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="DaemonCapture" FontSize="25" FontWeight="SemiBold" />
+                <TextBlock Text="Live Packet Capture fuer DaemonMC" Foreground="#8B949E" Margin="0,3,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <WrapPanel VerticalAlignment="Center">
+                <TextBox x:Name="SearchBox"
+                         Width="260"
+                         TextChanged="Filter_OnChanged"
+                         ToolTip="Packet-ID, Typ, Richtung oder Hex suchen"
+                         Margin="0,0,10,0" />
+                <ComboBox x:Name="DirectionFilter"
+                          SelectionChanged="Filter_OnChanged"
+                          Margin="0,0,10,0">
+                    <ComboBoxItem Content="Alle Richtungen" IsSelected="True" />
+                    <ComboBoxItem Content="Received" />
+                    <ComboBoxItem Content="Sent" />
+                </ComboBox>
+                <Button Content="Clear" Click="Clear_OnClick" />
+            </WrapPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Border Style="{StaticResource MetricBlock}" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock Text="Total" Foreground="#8B949E" FontSize="12" />
+                        <TextBlock x:Name="TotalPacketsText" Text="0" FontSize="20" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource MetricBlock}">
+                    <StackPanel>
+                        <TextBlock Text="Selected" Foreground="#8B949E" FontSize="12" />
+                        <TextBlock x:Name="SelectedPacketText" Text="-" FontSize="20" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" MinWidth="530" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <DataGrid x:Name="PacketGrid"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single"
+                      SelectionChanged="PacketGrid_OnSelectionChanged"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      Background="#0D1117"
+                      Foreground="#E6EDF3"
+                      RowBackground="#0D1117"
+                      AlternatingRowBackground="#111821"
+                      HorizontalGridLinesBrush="#30363D"
+                      BorderBrush="#30363D"
+                      RowHeaderWidth="0"
+                      ItemsSource="{Binding PacketsView}">
+                <DataGrid.Resources>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#161B22" />
+                        <Setter Property="Foreground" Value="#E6EDF3" />
+                        <Setter Property="BorderBrush" Value="#30363D" />
+                    </Style>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Foreground" Value="#E6EDF3" />
+                        <Setter Property="BorderBrush" Value="#30363D" />
+                    </Style>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="#0D1117" />
+                        <Setter Property="Foreground" Value="#E6EDF3" />
+                    </Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="#E6EDF3" />
+                    </Style>
+                </DataGrid.Resources>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="62" />
+                    <DataGridTextColumn Header="Time" Binding="{Binding LocalTime}" Width="118" />
+                    <DataGridTextColumn Header="Direction" Binding="{Binding Direction}" Width="98" />
+                    <DataGridTextColumn Header="Packet ID" Binding="{Binding PacketId}" Width="88" />
+                    <DataGridTextColumn Header="Name" Binding="{Binding PacketName}" Width="170" />
+                    <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="74" />
+                    <DataGridTextColumn Header="Preview" Binding="{Binding HexPreview}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Column="1" Width="10" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <Border Grid.Column="2" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Padding="14,12" BorderBrush="#30363D" BorderThickness="0,0,0,1">
+                        <StackPanel>
+                            <TextBlock x:Name="DetailTitle" Text="Kein Packet ausgewaehlt" FontSize="17" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DetailSubtitle" Text="-" Foreground="#8B949E" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <TabControl Grid.Row="1" Padding="0">
+                        <TabItem Header="Summary">
+                            <TextBox x:Name="SummaryText"
+                                     IsReadOnly="True"
+                                     BorderThickness="0"
+                                     FontFamily="Consolas"
+                                     Background="#0D1117"
+                                     Foreground="#E6EDF3"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto" />
+                        </TabItem>
+                        <TabItem Header="Hex">
+                            <TextBox x:Name="HexText"
+                                     IsReadOnly="True"
+                                     BorderThickness="0"
+                                     FontFamily="Consolas"
+                                     FontSize="12"
+                                     Background="#0D1117"
+                                     Foreground="#E6EDF3"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto" />
+                        </TabItem>
+                        <TabItem Header="Stats">
+                            <ListView x:Name="PacketStatsList" BorderThickness="0">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Packet" DisplayMemberBinding="{Binding Name}" Width="170" />
+                                        <GridViewColumn Header="Count" DisplayMemberBinding="{Binding Count}" Width="80" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="3"
+                   x:Name="FooterText"
+                   Text="0 sichtbar"
+                   Foreground="#8B949E"
+                   Margin="0,10,0,0" />
     </Grid>
 </Window>
