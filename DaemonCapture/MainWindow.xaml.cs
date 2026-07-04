@@ -13,6 +13,7 @@ namespace DaemonCapture;
 public partial class MainWindow : Window
 {
     private const int MaxVisiblePackets = 20;
+    private const int MaxBatchSize = 256;
 
     private readonly ObservableCollection<PacketSnapshotViewModel> _packets = new();
     private readonly ObservableCollection<PacketStatViewModel> _packetStats = new();
@@ -22,7 +23,7 @@ public partial class MainWindow : Window
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private PacketTelemetryServer? _packetTelemetryServer;
     private bool _isInitialized;
-    private bool _isFrozen;
+    private volatile bool _isFrozen;
     private int _nextIndex = 1;
 
     public MainWindow()
@@ -57,19 +58,62 @@ public partial class MainWindow : Window
 
     private async Task ReadSnapshotsAsync(PacketTelemetryServer server, CancellationToken cancellationToken)
     {
-        await foreach (PacketSnapshot snapshot in server.Snapshots.ReadAllAsync(cancellationToken))
+        List<PacketSnapshot> batch = new(MaxBatchSize);
+
+        while (await server.Snapshots.WaitToReadAsync(cancellationToken))
         {
-            await Dispatcher.InvokeAsync(() => AddSnapshot(snapshot), System.Windows.Threading.DispatcherPriority.Background, cancellationToken);
+            batch.Clear();
+
+            while (batch.Count < MaxBatchSize && server.Snapshots.TryRead(out PacketSnapshot? snapshot))
+            {
+                batch.Add(snapshot);
+            }
+
+            if (batch.Count == 0 || _isFrozen)
+                continue;
+
+            PacketSnapshot[] snapshotBatch = batch.ToArray();
+            await Dispatcher.InvokeAsync(() => AddSnapshots(snapshotBatch), System.Windows.Threading.DispatcherPriority.Background, cancellationToken);
         }
     }
 
-    private void AddSnapshot(PacketSnapshot snapshot)
+    private void AddSnapshots(IReadOnlyList<PacketSnapshot> snapshots)
     {
-        if (_isFrozen || _blockedPacketIds.Contains(snapshot.PacketId))
+        if (_isFrozen)
             return;
 
-        PacketSnapshotViewModel model = new(_nextIndex++, snapshot);
-        _packets.Add(model);
+        Queue<PendingPacket> latestPackets = new(MaxVisiblePackets);
+
+        foreach (PacketSnapshot snapshot in snapshots)
+        {
+            if (_blockedPacketIds.Contains(snapshot.PacketId))
+                continue;
+
+            int index = _nextIndex++;
+            UpdateStat(snapshot.PacketId);
+
+            if (latestPackets.Count == MaxVisiblePackets)
+                latestPackets.Dequeue();
+
+            latestPackets.Enqueue(new PendingPacket(index, snapshot));
+        }
+
+        if (latestPackets.Count == 0)
+            return;
+
+        PacketSnapshotViewModel? latestModel = null;
+
+        if (latestPackets.Count == MaxVisiblePackets)
+        {
+            _packets.Clear();
+        }
+
+        foreach (PendingPacket pendingPacket in latestPackets)
+        {
+            PacketSnapshotViewModel model = new(pendingPacket.Index, pendingPacket.Snapshot);
+            _packets.Add(model);
+            latestModel = model;
+        }
 
         while (_packets.Count > MaxVisiblePackets)
         {
@@ -77,8 +121,19 @@ public partial class MainWindow : Window
         }
 
         TotalPacketsText.Text = _packets.Count.ToString();
+        PacketsView.Refresh();
 
-        string statKey = $"{model.PacketName} ({model.PacketId})";
+        if (latestModel != null)
+            ScrollToLatestVisiblePacket(latestModel);
+
+        UpdateFooter();
+    }
+
+    private void UpdateStat(int packetId)
+    {
+        string packetName = PacketSnapshotViewModel.ResolvePacketName(packetId);
+        string statKey = $"{packetName} ({packetId})";
+
         if (!_statsByPacket.TryGetValue(statKey, out PacketStatViewModel? stat))
         {
             stat = new PacketStatViewModel(statKey);
@@ -86,12 +141,7 @@ public partial class MainWindow : Window
             _packetStats.Add(stat);
         }
 
-        stat.Count++;
-        PacketStatsList.Items.Refresh();
-
-        PacketsView.Refresh();
-        ScrollToLatestVisiblePacket(model);
-        UpdateFooter();
+        stat.Increment();
     }
 
     private void Freeze_OnChanged(object sender, RoutedEventArgs e)
@@ -174,6 +224,12 @@ public partial class MainWindow : Window
             SummaryText.Text = string.Empty;
             HexText.Text = string.Empty;
             return;
+        }
+
+        if (!_isFrozen)
+        {
+            _isFrozen = true;
+            FreezeCheckBox.IsChecked = true;
         }
 
         SelectedPacketText.Text = $"#{packet.Index}";
@@ -267,7 +323,7 @@ public sealed class PacketSnapshotViewModel
         $"Name:       {PacketName}{Environment.NewLine}" +
         $"Payload:    {Size:N0} bytes";
 
-    private static string ResolvePacketName(int packetId)
+    public static string ResolvePacketName(int packetId)
     {
         return Enum.IsDefined(typeof(Info.Bedrock), packetId)
             ? Enum.GetName(typeof(Info.Bedrock), packetId) ?? $"Unknown_{packetId}"
@@ -326,16 +382,36 @@ public sealed class PacketSnapshotViewModel
     }
 }
 
-public sealed class PacketStatViewModel
+public sealed class PacketStatViewModel : INotifyPropertyChanged
 {
+    private int _count;
+
     public PacketStatViewModel(string name)
     {
         Name = name;
     }
 
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Name { get; }
 
-    public int Count { get; set; }
+    public int Count
+    {
+        get => _count;
+        private set
+        {
+            if (_count == value)
+                return;
+
+            _count = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
+        }
+    }
+
+    public void Increment()
+    {
+        Count++;
+    }
 }
 
 public sealed class BlockedPacketViewModel
@@ -350,3 +426,5 @@ public sealed class BlockedPacketViewModel
 
     public string Name { get; }
 }
+
+internal readonly record struct PendingPacket(int Index, PacketSnapshot Snapshot);
