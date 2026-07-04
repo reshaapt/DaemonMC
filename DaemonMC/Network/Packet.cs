@@ -1,6 +1,7 @@
 ﻿using DaemonMC.Network.Bedrock;
 using DaemonMC.Network.RakNet;
 using DaemonMC.Plugin;
+using DaemonMC.Telemetry;
 using DaemonMC.Utils.Text;
 
 namespace DaemonMC.Network
@@ -91,6 +92,8 @@ namespace DaemonMC.Network
                             encoder.PacketId(Id);
                             break;
                     }
+                    
+                    PacketTelemetryProducer.Produce(PacketDirection.Sent, PacketType.Bedrock, Id);
                     Encode(encoder);
                     switch (this)
                     {

@@ -6,6 +6,7 @@ using DaemonMC.Level;
 using DaemonMC.Network;
 using DaemonMC.Network.RakNet;
 using DaemonMC.Plugin;
+using DaemonMC.Telemetry;
 using DaemonMC.Utils.Text;
 
 namespace DaemonMC
@@ -69,6 +70,11 @@ namespace DaemonMC
             Thread titleMonitor = new Thread(titleUpdate);
             titleMonitor.Start();
 
+            PacketTelemetryChannel packetTelemetryChannel = new PacketTelemetryChannel();
+            PacketTelemetryProducer.SetWriter(packetTelemetryChannel.Writer);
+            PacketTelemetryConsumer packetTelemetryConsumer = new PacketTelemetryConsumer(packetTelemetryChannel.Reader);
+            packetTelemetryConsumer.StartConsumingAsync();
+            
             RakSessionManager.Init();
 
             while (!Crash)

@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using DaemonCapture.Telemetry;
 
 namespace DaemonCapture;
 
@@ -19,5 +20,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+    }
+
+    private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        PacketTelemetryServer packetTelemetryServer = new PacketTelemetryServer();
+        packetTelemetryServer.Listener();
     }
 }
