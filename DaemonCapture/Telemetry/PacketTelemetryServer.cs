@@ -140,10 +140,25 @@ public class PacketTelemetryServer
 
                 byte[] operationBytes = frame.Slice(frameReader.Position, operationLength).ToArray();
                 frameReader.Advance(operationLength);
+                string property = string.Empty;
+
+                if (frameReader.Remaining >= 4)
+                {
+                    if (!frameReader.TryReadLittleEndian(out int propertyLength))
+                        throw new InvalidDataException("Invalid telemetry trace property header.");
+
+                    if (propertyLength < 0 || frameReader.Remaining < propertyLength)
+                        throw new InvalidDataException($"Invalid telemetry trace property length {propertyLength}.");
+
+                    byte[] propertyBytes = frame.Slice(frameReader.Position, propertyLength).ToArray();
+                    frameReader.Advance(propertyLength);
+                    property = Encoding.UTF8.GetString(propertyBytes);
+                }
 
                 traceOperations.Add(new PacketTraceOperation
                 {
                     Operation = Encoding.UTF8.GetString(operationBytes),
+                    Property = property,
                     Offset = offset,
                     Length = length
                 });

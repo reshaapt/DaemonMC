@@ -12,6 +12,7 @@ using DaemonMC.Utils;
 using DaemonMC.Utils.Game;
 using DaemonMC.Utils.Text;
 using fNbt;
+using System.Runtime.CompilerServices;
 
 namespace DaemonMC.Network
 {
@@ -27,7 +28,7 @@ namespace DaemonMC.Network
         {
             clientEp = ep;
             byteStream = new MemoryStream();
-            protocolVersion = RakSessionManager.getSession(ep).protocolVersion;
+            protocolVersion = RakSessionManager.sessions.TryGetValue(ep, out var session) ? session.protocolVersion : Info.ProtocolVersion.Last();
         }
 
         public void handlePacket(string type = "bedrock")
@@ -106,7 +107,7 @@ namespace DaemonMC.Network
             TraceOperations.Clear();
         }
 
-        private void TraceWrite(string operation, long start)
+        private void TraceWrite(string operation, long start, string property = "")
         {
             int length = (int)(byteStream.Position - start);
             if (length <= 0)
@@ -115,6 +116,7 @@ namespace DaemonMC.Network
             TraceOperations.Add(new PacketTraceOperation
             {
                 Operation = operation,
+                Property = property,
                 Offset = (int)start,
                 Length = length
             });
@@ -156,39 +158,39 @@ namespace DaemonMC.Network
             WriteVarInt((uint)id);
         }
 
-        public void WriteBool(bool value)
+        public void WriteBool(bool value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byteStream.WriteByte(value ? (byte)1 : (byte)0);
-            TraceWrite(nameof(WriteBool), start);
+            TraceWrite(nameof(WriteBool), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteInt(int value)
+        public void WriteInt(int value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byte[] bytes = BitConverter.GetBytes(value);
             byteStream.Write(bytes, 0, bytes.Length);
-            TraceWrite(nameof(WriteInt), start);
+            TraceWrite(nameof(WriteInt), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteIntBE(int value)
+        public void WriteIntBE(int value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byte[] bytes = BitConverter.GetBytes(value);
             Array.Reverse(bytes);
             byteStream.Write(bytes, 0, bytes.Length);
-            TraceWrite(nameof(WriteIntBE), start);
+            TraceWrite(nameof(WriteIntBE), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteFloat(float value)
+        public void WriteFloat(float value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byte[] bytes = BitConverter.GetBytes(value);
             byteStream.Write(bytes, 0, bytes.Length);
-            TraceWrite(nameof(WriteFloat), start);
+            TraceWrite(nameof(WriteFloat), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteVarInt_Signed(int rawValue)
+        public void WriteVarInt_Signed(int rawValue, [CallerArgumentExpression(nameof(rawValue))] string valueExpression = "")
         {
             long start = byteStream.Position;
             uint value = unchecked((uint)rawValue);
@@ -198,15 +200,15 @@ namespace DaemonMC.Network
                 value >>= 7;
             }
             byteStream.WriteByte((byte)value);
-            TraceWrite(nameof(WriteVarInt_Signed), start);
+            TraceWrite(nameof(WriteVarInt_Signed), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteVarInt(int value)
+        public void WriteVarInt(int value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
-            WriteVarInt((uint)value);
+            WriteVarInt((uint)value, valueExpression);
         }
 
-        public void WriteVarInt(uint value)
+        public void WriteVarInt(uint value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             if (value < 0)
@@ -220,49 +222,49 @@ namespace DaemonMC.Network
                 value >>= 7;
             }
             byteStream.WriteByte((byte)(value & 127));
-            TraceWrite(nameof(WriteVarInt), start);
+            TraceWrite(nameof(WriteVarInt), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteSignedVarInt(int value)
+        public void WriteSignedVarInt(int value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             uint zigzagEncoded = (uint)((value << 1) ^ (value >> 31));
             WriteVarInt(zigzagEncoded);
-            TraceWrite(nameof(WriteSignedVarInt), start);
+            TraceWrite(nameof(WriteSignedVarInt), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteShort(ushort value)
+        public void WriteShort(ushort value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byteStream.WriteByte((byte)value);
             byteStream.WriteByte((byte)(value >> 8));
-            TraceWrite(nameof(WriteShort), start);
+            TraceWrite(nameof(WriteShort), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteShort(short value)
+        public void WriteShort(short value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byteStream.WriteByte((byte)(value & 0xFF));
             byteStream.WriteByte((byte)((value >> 8) & 0xFF));
-            TraceWrite(nameof(WriteShort), start);
+            TraceWrite(nameof(WriteShort), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteShortBE(ushort value)
+        public void WriteShortBE(ushort value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byteStream.WriteByte((byte)(value >> 8));
             byteStream.WriteByte((byte)value);
-            TraceWrite(nameof(WriteShortBE), start);
+            TraceWrite(nameof(WriteShortBE), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteByte(byte value)
+        public void WriteByte(byte value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byteStream.WriteByte(value);
-            TraceWrite(nameof(WriteByte), start);
+            TraceWrite(nameof(WriteByte), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteBytes(byte[] data, bool writeLength = true)
+        public void WriteBytes(byte[] data, bool writeLength = true, [CallerArgumentExpression(nameof(data))] string dataExpression = "")
         {
             long start = byteStream.Position;
             if (writeLength)
@@ -270,27 +272,27 @@ namespace DaemonMC.Network
                 WriteVarInt(data.Count());
             }
             byteStream.Write(data, 0, data.Length);
-            TraceWrite(nameof(WriteBytes), start);
+            TraceWrite(nameof(WriteBytes), start, PacketTracePropertyResolver.FromWriteArgument(dataExpression));
         }
 
-        public void WriteLongLE(long value)
+        public void WriteLongLE(long value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byte[] valueBytes = BitConverter.GetBytes(value);
             Array.Reverse(valueBytes);
             byteStream.Write(valueBytes, 0, valueBytes.Length);
-            TraceWrite(nameof(WriteLongLE), start);
+            TraceWrite(nameof(WriteLongLE), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteLong(long value)
+        public void WriteLong(long value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byte[] valueBytes = BitConverter.GetBytes(value);
             byteStream.Write(valueBytes, 0, valueBytes.Length);
-            TraceWrite(nameof(WriteLong), start);
+            TraceWrite(nameof(WriteLong), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteMagic(string magic)
+        public void WriteMagic(string magic, [CallerArgumentExpression(nameof(magic))] string valueExpression = "")
         {
             long start = byteStream.Position;
             for (int i = 0; i < magic.Length; i += 2)
@@ -299,10 +301,10 @@ namespace DaemonMC.Network
                 byte b = byte.Parse(byteString, System.Globalization.NumberStyles.HexNumber);
                 byteStream.WriteByte(b);
             }
-            TraceWrite(nameof(WriteMagic), start);
+            TraceWrite(nameof(WriteMagic), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteRakString(string str)
+        public void WriteRakString(string str, [CallerArgumentExpression(nameof(str))] string valueExpression = "")
         {
             long start = byteStream.Position;
             ushort length = (ushort)str.Length;
@@ -312,16 +314,16 @@ namespace DaemonMC.Network
 
             byte[] strBytes = Encoding.UTF8.GetBytes(str);
             byteStream.Write(strBytes, 0, strBytes.Length);
-            TraceWrite(nameof(WriteRakString), start);
+            TraceWrite(nameof(WriteRakString), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteString(string str)
+        public void WriteString(string str, [CallerArgumentExpression(nameof(str))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byte[] strBytes = Encoding.UTF8.GetBytes(str);
             WriteVarInt(strBytes.Length);
             byteStream.Write(strBytes, 0, strBytes.Length);
-            TraceWrite(nameof(WriteString), start);
+            TraceWrite(nameof(WriteString), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
         public void WriteStringList(List<string> list)
@@ -333,16 +335,16 @@ namespace DaemonMC.Network
             }
         }
 
-        public void WriteMTU(int mtu)
+        public void WriteMTU(int mtu, [CallerArgumentExpression(nameof(mtu))] string valueExpression = "")
         {
             long start = byteStream.Position;
             int payloadLength = mtu - 28;
             byte[] payload = new byte[payloadLength];
             byteStream.Write(payload, 0, payload.Length);
-            TraceWrite(nameof(WriteMTU), start);
+            TraceWrite(nameof(WriteMTU), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteAddress(IPAddressInfo info)
+        public void WriteAddress(IPAddressInfo info, [CallerArgumentExpression(nameof(info))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byte[] ipParts = info.IPAddress;
@@ -355,24 +357,24 @@ namespace DaemonMC.Network
             byte[] portBytes = BitConverter.GetBytes(info.Port);
             Array.Reverse(portBytes);
             byteStream.Write(portBytes, 0, portBytes.Length);
-            TraceWrite(nameof(WriteAddress), start);
+            TraceWrite(nameof(WriteAddress), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteUInt24LE(uint value)
+        public void WriteUInt24LE(uint value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             byteStream.WriteByte((byte)(value & 0xFF));
             byteStream.WriteByte((byte)((value >> 8) & 0xFF));
             byteStream.WriteByte((byte)((value >> 16) & 0xFF));
-            TraceWrite(nameof(WriteUInt24LE), start);
+            TraceWrite(nameof(WriteUInt24LE), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteVarLong(long value)
+        public void WriteVarLong(long value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
-            WriteVarLong((ulong)value);
+            WriteVarLong((ulong)value, valueExpression);
         }
 
-        public void WriteVarLong(ulong value)
+        public void WriteVarLong(ulong value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             if (value < 0)
@@ -386,18 +388,18 @@ namespace DaemonMC.Network
                 value >>= 7;
             }
             byteStream.WriteByte((byte)(value & 0x7FUL));
-            TraceWrite(nameof(WriteVarLong), start);
+            TraceWrite(nameof(WriteVarLong), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteSignedVarLong(long value)
+        public void WriteSignedVarLong(long value, [CallerArgumentExpression(nameof(value))] string valueExpression = "")
         {
             long start = byteStream.Position;
             ulong zigzagEncoded = (ulong)((value << 1) ^ (value >> 63));
             WriteVarLong(zigzagEncoded);
-            TraceWrite(nameof(WriteSignedVarLong), start);
+            TraceWrite(nameof(WriteSignedVarLong), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
-        public void WriteCompoundTag(NbtCompound compoundTag)
+        public void WriteCompoundTag(NbtCompound compoundTag, [CallerArgumentExpression(nameof(compoundTag))] string valueExpression = "")
         {
             long start = byteStream.Position;
             NbtFile file = new NbtFile(compoundTag);
@@ -408,7 +410,7 @@ namespace DaemonMC.Network
             byte[] serializedTag = file.SaveToBuffer(NbtCompression.None);
 
             byteStream.Write(serializedTag, 0, serializedTag.Length);
-            TraceWrite(nameof(WriteCompoundTag), start);
+            TraceWrite(nameof(WriteCompoundTag), start, PacketTracePropertyResolver.FromWriteArgument(valueExpression));
         }
 
         public void WriteUUID(Guid uuid)

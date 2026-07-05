@@ -24,7 +24,7 @@
             }
             if (decoder.protocolVersion >= Info.v1_21_130)
             {
-                SwingSource = decoder.ReadOptional(decoder.ReadString);
+                SwingSource = decoder.ReadOptional(() => decoder.ReadString());
             }
         }
 

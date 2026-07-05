@@ -8,6 +8,7 @@ using DaemonMC.Telemetry;
 using DaemonMC.Utils;
 using DaemonMC.Utils.Game;
 using DaemonMC.Utils.Text;
+using System.Runtime.CompilerServices;
 
 namespace DaemonMC.Network
 {
@@ -140,7 +141,7 @@ namespace DaemonMC.Network
             TraceOperations.Clear();
         }
 
-        private void TraceRead(string operation, int start)
+        private void TraceRead(string operation, int start, string property = "")
         {
             int length = readOffset - start;
             if (length <= 0)
@@ -149,49 +150,50 @@ namespace DaemonMC.Network
             TraceOperations.Add(new PacketTraceOperation
             {
                 Operation = operation,
+                Property = property,
                 Offset = start,
                 Length = length
             });
         }
 
-        public bool ReadBool()
+        public bool ReadBool([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             byte b = buffer[readOffset];
             readOffset += 1;
-            TraceRead(nameof(ReadBool), start);
+            TraceRead(nameof(ReadBool), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return b == 1 ? true : false;
         }
 
-        public int ReadInt()
+        public int ReadInt([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             int a = BitConverter.ToInt32(buffer, readOffset);
             readOffset += 4;
-            TraceRead(nameof(ReadInt), start);
+            TraceRead(nameof(ReadInt), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return a;
         }
 
-        public float ReadFloat()
+        public float ReadFloat([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             float a = BitConverter.ToSingle(buffer, readOffset);
             readOffset += 4;
-            TraceRead(nameof(ReadFloat), start);
+            TraceRead(nameof(ReadFloat), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return a;
         }
 
-        public int ReadIntBE()
+        public int ReadIntBE([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             Array.Reverse(buffer, readOffset, 4);
             int a = BitConverter.ToInt32(buffer, readOffset);
             readOffset += 4;
-            TraceRead(nameof(ReadIntBE), start);
+            TraceRead(nameof(ReadIntBE), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return a;
         }
 
-        public int ReadVarInt()
+        public int ReadVarInt([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             int value = 0;
@@ -210,107 +212,107 @@ namespace DaemonMC.Network
                 size++;
             }
 
-            TraceRead(nameof(ReadVarInt), start);
+            TraceRead(nameof(ReadVarInt), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
-        public int ReadSignedVarInt()
+        public int ReadSignedVarInt([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
 
             int start = readOffset;
             int rawVarInt = ReadVarInt();
             int value = (rawVarInt >> 1) ^ -(rawVarInt & 1);
-            TraceRead(nameof(ReadSignedVarInt), start);
+            TraceRead(nameof(ReadSignedVarInt), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
-        public short ReadSignedShort()
+        public short ReadSignedShort([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             short value = (short)((buffer[readOffset] << 8) | buffer[readOffset + 1]);
             readOffset += 2;
-            TraceRead(nameof(ReadSignedShort), start);
+            TraceRead(nameof(ReadSignedShort), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
-        public short ReadShortBE()
+        public short ReadShortBE([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             short value = (short)(buffer[readOffset + 1] | (buffer[readOffset] << 8));
             readOffset += 2;
-            TraceRead(nameof(ReadShortBE), start);
+            TraceRead(nameof(ReadShortBE), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
-        public ushort ReadShort()
+        public ushort ReadShort([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             ushort value = (ushort)((buffer[readOffset] << 8) | buffer[readOffset + 1]);
             readOffset += 2;
-            TraceRead(nameof(ReadShort), start);
+            TraceRead(nameof(ReadShort), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return (ushort)((value >> 8) | (value << 8));
         }
 
-        public byte ReadByte()
+        public byte ReadByte([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             byte b = buffer[readOffset];
             readOffset += 1;
-            TraceRead(nameof(ReadByte), start);
+            TraceRead(nameof(ReadByte), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return b;
         }
 
-        public void ReadBytes(byte[] data)
+        public void ReadBytes(byte[] data, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             Array.Copy(buffer, readOffset, data, 0, data.Length);
             readOffset += data.Length;
-            TraceRead(nameof(ReadBytes), start);
+            TraceRead(nameof(ReadBytes), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
         }
 
-        public byte[] ReadBytes(int count)
+        public byte[] ReadBytes(int count, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             byte[] result = new byte[count];
             Array.Copy(buffer, readOffset, result, 0, count);
             readOffset += count;
-            TraceRead(nameof(ReadBytes), start);
+            TraceRead(nameof(ReadBytes), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
 
             return result;
         }
 
-        public byte[] ReadBytes()
+        public byte[] ReadBytes([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             int length = ReadVarInt();
             byte[] result = new byte[length];
             Array.Copy(buffer, readOffset, result, 0, length);
             readOffset += length;
-            TraceRead(nameof(ReadBytes), start);
+            TraceRead(nameof(ReadBytes), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
 
             return result;
         }
 
-        public long ReadLong()
+        public long ReadLong([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             long value = BitConverter.ToInt64(buffer, readOffset);
             readOffset += 8;
-            TraceRead(nameof(ReadLong), start);
+            TraceRead(nameof(ReadLong), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
-        public long ReadLongLE()
+        public long ReadLongLE([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             Array.Reverse(buffer, readOffset, 8);
             long value = BitConverter.ToInt64(buffer, readOffset);
             readOffset += 8;
-            TraceRead(nameof(ReadLongLE), start);
+            TraceRead(nameof(ReadLongLE), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
-        public string ReadMagic()
+        public string ReadMagic([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             StringBuilder sb = new StringBuilder();
@@ -319,11 +321,11 @@ namespace DaemonMC.Network
                 sb.Append(buffer[readOffset + i].ToString("X2"));
             }
             readOffset += 16;
-            TraceRead(nameof(ReadMagic), start);
+            TraceRead(nameof(ReadMagic), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return sb.ToString();
         }
 
-        public string ReadRakString()
+        public string ReadRakString([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             short length = ReadShortBE();
@@ -334,11 +336,11 @@ namespace DaemonMC.Network
             string str = Encoding.UTF8.GetString(buffer, readOffset, length);
             readOffset += length;
 
-            TraceRead(nameof(ReadRakString), start);
+            TraceRead(nameof(ReadRakString), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return str;
         }
 
-        public string ReadString()
+        public string ReadString([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             int length = ReadVarInt();
@@ -349,7 +351,7 @@ namespace DaemonMC.Network
             string str = Encoding.UTF8.GetString(buffer, readOffset, length);
             readOffset += length;
 
-            TraceRead(nameof(ReadString), start);
+            TraceRead(nameof(ReadString), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return str;
         }
 
@@ -364,7 +366,7 @@ namespace DaemonMC.Network
             return list;
         }
 
-        public short ReadMTU(int lenght)
+        public short ReadMTU(int lenght, [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             int paddingSize = lenght - readOffset;
@@ -373,11 +375,11 @@ namespace DaemonMC.Network
 
             readOffset = (paddingSize + readOffset);
 
-            TraceRead(nameof(ReadMTU), start);
+            TraceRead(nameof(ReadMTU), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return estimatedMTU;
         }
 
-        public IPAddressInfo ReadAddress()
+        public IPAddressInfo ReadAddress([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             byte ipVersion = buffer[readOffset];
@@ -403,7 +405,7 @@ namespace DaemonMC.Network
                 ReadInt(); //also idk
             }
 
-            TraceRead(nameof(ReadAddress), start);
+            TraceRead(nameof(ReadAddress), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return ipAddressInfo;
         }
 
@@ -430,16 +432,16 @@ namespace DaemonMC.Network
             return internalAddresses.ToArray();
         }
 
-        public uint ReadUInt24LE()
+        public uint ReadUInt24LE([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             uint uint24leValue = (uint)(buffer[readOffset] | (buffer[readOffset + 1] << 8) | (buffer[readOffset + 2] << 16));
             readOffset += 3;
-            TraceRead(nameof(ReadUInt24LE), start);
+            TraceRead(nameof(ReadUInt24LE), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return uint24leValue;
         }
 
-        public long ReadVarLong()
+        public long ReadVarLong([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
             int start = readOffset;
             long value = 0;
@@ -458,17 +460,17 @@ namespace DaemonMC.Network
                 size++;
             }
 
-            TraceRead(nameof(ReadVarLong), start);
+            TraceRead(nameof(ReadVarLong), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
-        public long ReadSignedVarLong()
+        public long ReadSignedVarLong([CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
         {
 
             int start = readOffset;
             long rawVarLong = ReadVarLong();
             long value = (rawVarLong >> 1) ^ -(rawVarLong & 1);
-            TraceRead(nameof(ReadSignedVarLong), start);
+            TraceRead(nameof(ReadSignedVarLong), start, PacketTracePropertyResolver.FromSourceLine(callerFilePath, callerLineNumber));
             return value;
         }
 
@@ -707,7 +709,7 @@ namespace DaemonMC.Network
         {
             var containerName = new FullContainerName();
             containerName.ContainerName = ReadByte();
-            containerName.DynamicId = ReadOptional(ReadSignedVarInt);
+            containerName.DynamicId = ReadOptional(() => ReadSignedVarInt());
             return containerName;
         }
 

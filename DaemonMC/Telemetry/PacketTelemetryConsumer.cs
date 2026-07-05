@@ -37,7 +37,7 @@ public class PacketTelemetryConsumer
         {
             byte[] payload = snap.Buffer ?? Array.Empty<byte>();
             List<TraceOperationPayload> traceOperations = BuildTracePayload(snap.TraceOperations);
-            int traceLength = 4 + traceOperations.Sum(operation => 12 + operation.OperationBytes.Length);
+            int traceLength = 4 + traceOperations.Sum(operation => 16 + operation.OperationBytes.Length + operation.PropertyBytes.Length);
             int frameLength = 4 + 1 + 8 + 4 + payload.Length + traceLength;
             Span<byte> buffer = writer.GetSpan(4 + frameLength);
 
@@ -59,6 +59,9 @@ public class PacketTelemetryConsumer
                 BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(offset + 8, 4), operation.OperationBytes.Length);
                 operation.OperationBytes.CopyTo(buffer.Slice(offset + 12));
                 offset += 12 + operation.OperationBytes.Length;
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(offset, 4), operation.PropertyBytes.Length);
+                operation.PropertyBytes.CopyTo(buffer.Slice(offset + 4));
+                offset += 4 + operation.PropertyBytes.Length;
             }
 
             writer.Advance(4 + frameLength);
@@ -76,11 +79,12 @@ public class PacketTelemetryConsumer
         foreach (PacketTraceOperation operation in traceOperations)
         {
             byte[] operationBytes = Encoding.UTF8.GetBytes(operation.Operation);
-            result.Add(new TraceOperationPayload(operation.Operation, operation.Offset, operation.Length, operationBytes));
+            byte[] propertyBytes = Encoding.UTF8.GetBytes(operation.Property);
+            result.Add(new TraceOperationPayload(operation.Operation, operation.Offset, operation.Length, operationBytes, propertyBytes));
         }
 
         return result;
     }
 
-    private readonly record struct TraceOperationPayload(string Operation, int Offset, int Length, byte[] OperationBytes);
+    private readonly record struct TraceOperationPayload(string Operation, int Offset, int Length, byte[] OperationBytes, byte[] PropertyBytes);
 }

@@ -11,8 +11,8 @@
         protected override void Decode(PacketDecoder decoder)
         {
             ID = decoder.ReadVarInt();
-            Data = decoder.ReadOptional(decoder.ReadString);
-            CancelReason = decoder.ReadOptional(decoder.ReadByte);
+            Data = decoder.ReadOptional(() => decoder.ReadString());
+            CancelReason = decoder.ReadOptional(() => decoder.ReadByte());
         }
 
         protected override void Encode(PacketEncoder encoder)

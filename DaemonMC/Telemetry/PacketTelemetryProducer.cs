@@ -22,6 +22,7 @@ public static class PacketTelemetryProducer
             TraceOperations = traceOperations?.Select(operation => new PacketTraceOperation
             {
                 Operation = operation.Operation,
+                Property = operation.Property,
                 Offset = operation.Offset,
                 Length = operation.Length
             }).ToList() ?? new List<PacketTraceOperation>(),

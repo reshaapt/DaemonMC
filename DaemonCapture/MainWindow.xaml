@@ -423,6 +423,7 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="92" />
                                                     <ColumnDefinition Width="130" />
+                                                    <ColumnDefinition Width="150" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="{Binding Range}"
@@ -436,6 +437,13 @@
                                                            Foreground="#E6EDF3"
                                                            Margin="8,0,8,0" />
                                                 <TextBlock Grid.Column="2"
+                                                           Text="{Binding Property}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="12"
+                                                           Foreground="#8B949E"
+                                                           Margin="0,0,8,0"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Grid.Column="3"
                                                            Text="{Binding Hex}"
                                                            FontFamily="Consolas"
                                                            FontSize="12"

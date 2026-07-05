@@ -441,7 +441,7 @@ public sealed class PacketSnapshotViewModel
     private static IReadOnlyList<PacketTraceRowViewModel> BuildTraceRows(byte[] data, IReadOnlyList<PacketTraceOperation> operations)
     {
         if (operations.Count == 0)
-            return new[] { new PacketTraceRowViewModel("-", "No trace captured.", string.Empty, string.Empty) };
+            return new[] { new PacketTraceRowViewModel("-", "No trace captured.", string.Empty, string.Empty, string.Empty) };
 
         List<PacketTraceRowViewModel> rows = new(operations.Count);
 
@@ -457,14 +457,15 @@ public sealed class PacketSnapshotViewModel
             rows.Add(new PacketTraceRowViewModel(
                 $"{start:X4}-{end:X4}",
                 operation.Operation,
+                string.IsNullOrWhiteSpace(operation.Property) ? "-" : operation.Property,
                 bytes,
-                DecodeTraceValue(operation.Operation, data.Skip(start).Take(Math.Min(length, Math.Max(data.Length - start, 0))).ToArray())));
+                DecodeTraceValue(operation.Operation, operation.Property, data.Skip(start).Take(Math.Min(length, Math.Max(data.Length - start, 0))).ToArray())));
         }
 
         return rows;
     }
 
-    private static string DecodeTraceValue(string operation, byte[] bytes)
+    private static string DecodeTraceValue(string operation, string property, byte[] bytes)
     {
         try
         {
@@ -493,7 +494,8 @@ public sealed class PacketSnapshotViewModel
                 _ => $"{bytes.Length:N0} bytes"
             };
 
-            return $"Value: {value}";
+            string propertyText = string.IsNullOrWhiteSpace(property) ? "-" : property;
+            return $"Property: {propertyText}{Environment.NewLine}Value: {value}";
         }
         catch (Exception ex)
         {
@@ -656,4 +658,4 @@ public sealed class BlockedPacketViewModel
 
 internal readonly record struct PendingPacket(int Index, PacketSnapshot Snapshot);
 
-public sealed record PacketTraceRowViewModel(string Range, string Operation, string Hex, string Value);
+public sealed record PacketTraceRowViewModel(string Range, string Operation, string Property, string Hex, string Value);
