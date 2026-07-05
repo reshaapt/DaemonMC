@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -271,6 +273,7 @@ public partial class MainWindow : Window
             SummaryText.Text = string.Empty;
             HexText.Text = string.Empty;
             TraceList.ItemsSource = null;
+            TraceValueText.Text = string.Empty;
             return;
         }
 
@@ -286,6 +289,7 @@ public partial class MainWindow : Window
         SummaryText.Text = packet.Summary;
         HexText.Text = packet.HexDump;
         TraceList.ItemsSource = packet.TraceRows;
+        TraceValueText.Text = string.Empty;
     }
 
     private void Clear_OnClick(object sender, RoutedEventArgs e)
@@ -297,6 +301,11 @@ public partial class MainWindow : Window
         TotalPacketsText.Text = "0";
         PacketGrid.SelectedItem = null;
         UpdateFooter();
+    }
+
+    private void TraceList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        TraceValueText.Text = TraceList.SelectedItem is PacketTraceRowViewModel row ? row.Value : string.Empty;
     }
 
     private void UpdateFooter()
@@ -432,7 +441,7 @@ public sealed class PacketSnapshotViewModel
     private static IReadOnlyList<PacketTraceRowViewModel> BuildTraceRows(byte[] data, IReadOnlyList<PacketTraceOperation> operations)
     {
         if (operations.Count == 0)
-            return new[] { new PacketTraceRowViewModel("-", "No trace captured.", string.Empty) };
+            return new[] { new PacketTraceRowViewModel("-", "No trace captured.", string.Empty, string.Empty) };
 
         List<PacketTraceRowViewModel> rows = new(operations.Count);
 
@@ -448,10 +457,138 @@ public sealed class PacketSnapshotViewModel
             rows.Add(new PacketTraceRowViewModel(
                 $"{start:X4}-{end:X4}",
                 operation.Operation,
-                bytes));
+                bytes,
+                DecodeTraceValue(operation.Operation, data.Skip(start).Take(Math.Min(length, Math.Max(data.Length - start, 0))).ToArray())));
         }
 
         return rows;
+    }
+
+    private static string DecodeTraceValue(string operation, byte[] bytes)
+    {
+        try
+        {
+            string value = operation switch
+            {
+                "ReadBool" or "WriteBool" when bytes.Length >= 1 => bytes[0] == 1 ? "true" : "false",
+                "ReadByte" or "WriteByte" when bytes.Length >= 1 => bytes[0].ToString(CultureInfo.InvariantCulture),
+                "ReadInt" or "WriteInt" when bytes.Length >= 4 => BinaryPrimitives.ReadInt32LittleEndian(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadIntBE" or "WriteIntBE" when bytes.Length >= 4 => BinaryPrimitives.ReadInt32BigEndian(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadFloat" or "WriteFloat" when bytes.Length >= 4 => BitConverter.ToSingle(bytes, 0).ToString("R", CultureInfo.InvariantCulture),
+                "ReadShort" or "WriteShort" when bytes.Length >= 2 => BinaryPrimitives.ReadInt16LittleEndian(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadShortBE" or "ReadSignedShort" or "WriteShortBE" when bytes.Length >= 2 => BinaryPrimitives.ReadInt16BigEndian(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadLong" or "WriteLong" when bytes.Length >= 8 => BinaryPrimitives.ReadInt64LittleEndian(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadLongLE" or "WriteLongLE" when bytes.Length >= 8 => BinaryPrimitives.ReadInt64BigEndian(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadUInt24LE" or "WriteUInt24LE" when bytes.Length >= 3 => (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16)).ToString(CultureInfo.InvariantCulture),
+                "ReadVarInt" or "WriteVarInt" or "WriteVarInt_Signed" => ReadVarInt(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadSignedVarInt" or "WriteSignedVarInt" => DecodeSignedVarInt(ReadVarInt(bytes)).ToString(CultureInfo.InvariantCulture),
+                "ReadVarLong" or "WriteVarLong" => ReadVarLong(bytes).ToString(CultureInfo.InvariantCulture),
+                "ReadSignedVarLong" or "WriteSignedVarLong" => DecodeSignedVarLong(ReadVarLong(bytes)).ToString(CultureInfo.InvariantCulture),
+                "ReadString" or "WriteString" => DecodeString(bytes),
+                "ReadRakString" or "WriteRakString" => DecodeRakString(bytes),
+                "ReadMagic" or "WriteMagic" => ToHex(bytes, bytes.Length),
+                "ReadBytes" or "WriteBytes" => $"{bytes.Length:N0} bytes",
+                "ReadMTU" or "WriteMTU" => $"{bytes.Length:N0} padding bytes",
+                "ReadAddress" or "WriteAddress" => DecodeAddress(bytes),
+                _ => $"{bytes.Length:N0} bytes"
+            };
+
+            return $"Value: {value}";
+        }
+        catch (Exception ex)
+        {
+            return $"Value could not be decoded as {operation}: {ex.Message}";
+        }
+    }
+
+    private static int ReadVarInt(byte[] bytes)
+    {
+        int value = 0;
+        int size = 0;
+
+        foreach (byte currentByte in bytes)
+        {
+            value |= (currentByte & 0x7F) << (size * 7);
+            if ((currentByte & 0x80) == 0)
+                return value;
+
+            size++;
+        }
+
+        throw new InvalidDataException("Incomplete VarInt.");
+    }
+
+    private static long ReadVarLong(byte[] bytes)
+    {
+        long value = 0;
+        int size = 0;
+
+        foreach (byte currentByte in bytes)
+        {
+            value |= (long)(currentByte & 0x7F) << (size * 7);
+            if ((currentByte & 0x80) == 0)
+                return value;
+
+            size++;
+        }
+
+        throw new InvalidDataException("Incomplete VarLong.");
+    }
+
+    private static int DecodeSignedVarInt(int value)
+    {
+        return (value >> 1) ^ -(value & 1);
+    }
+
+    private static long DecodeSignedVarLong(long value)
+    {
+        return (value >> 1) ^ -(value & 1);
+    }
+
+    private static string DecodeString(byte[] bytes)
+    {
+        int length = ReadVarInt(bytes);
+        int prefixLength = GetVarIntLength(bytes);
+
+        if (length < 0 || prefixLength + length > bytes.Length)
+            throw new InvalidDataException($"Invalid string length {length}.");
+
+        return Encoding.UTF8.GetString(bytes, prefixLength, length);
+    }
+
+    private static string DecodeRakString(byte[] bytes)
+    {
+        if (bytes.Length < 2)
+            throw new InvalidDataException("RakString is shorter than its length prefix.");
+
+        int length = BinaryPrimitives.ReadUInt16BigEndian(bytes);
+        if (2 + length > bytes.Length)
+            throw new InvalidDataException($"Invalid RakString length {length}.");
+
+        return Encoding.UTF8.GetString(bytes, 2, length);
+    }
+
+    private static int GetVarIntLength(byte[] bytes)
+    {
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            if ((bytes[i] & 0x80) == 0)
+                return i + 1;
+        }
+
+        throw new InvalidDataException("Incomplete VarInt.");
+    }
+
+    private static string DecodeAddress(byte[] bytes)
+    {
+        if (bytes.Length >= 7 && bytes[0] == 4)
+        {
+            string address = $"{bytes[1]}.{bytes[2]}.{bytes[3]}.{bytes[4]}";
+            ushort port = BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(5, 2));
+            return $"{address}:{port}";
+        }
+
+        return $"{bytes.Length:N0} address bytes";
     }
 
     private static string ToHex(byte[] data, int count)
@@ -519,4 +656,4 @@ public sealed class BlockedPacketViewModel
 
 internal readonly record struct PendingPacket(int Index, PacketSnapshot Snapshot);
 
-public sealed record PacketTraceRowViewModel(string Range, string Operation, string Hex);
+public sealed record PacketTraceRowViewModel(string Range, string Operation, string Hex, string Value);

@@ -398,47 +398,69 @@
                                      HorizontalScrollBarVisibility="Auto" />
                         </TabItem>
                         <TabItem Header="Trace">
-                            <ListView x:Name="TraceList"
-                                      BorderThickness="0"
-                                      Background="#0D1117"
-                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
-                                <ListView.ItemContainerStyle>
-                                    <Style TargetType="ListViewItem">
-                                        <Setter Property="Background" Value="#0D1117" />
-                                        <Setter Property="Foreground" Value="#E6EDF3" />
-                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                        <Setter Property="Padding" Value="0" />
-                                    </Style>
-                                </ListView.ItemContainerStyle>
-                                <ListView.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="8,6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="92" />
-                                                <ColumnDefinition Width="130" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding Range}"
-                                                       FontFamily="Consolas"
-                                                       FontSize="12"
-                                                       Foreground="#8B949E" />
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{Binding Operation}"
-                                                       FontFamily="Consolas"
-                                                       FontSize="12"
-                                                       Foreground="#E6EDF3"
-                                                       Margin="8,0,8,0" />
-                                            <TextBlock Grid.Column="2"
-                                                       Text="{Binding Hex}"
-                                                       FontFamily="Consolas"
-                                                       FontSize="12"
-                                                       Foreground="#E6EDF3"
-                                                       TextWrapping="Wrap" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ListView.ItemTemplate>
-                            </ListView>
+                            <Grid Background="#0D1117">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <ListView x:Name="TraceList"
+                                          BorderThickness="0"
+                                          Background="#0D1117"
+                                          SelectionChanged="TraceList_OnSelectionChanged"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="Background" Value="#0D1117" />
+                                            <Setter Property="Foreground" Value="#E6EDF3" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                            <Setter Property="Padding" Value="0" />
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="8,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="92" />
+                                                    <ColumnDefinition Width="130" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Range}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="12"
+                                                           Foreground="#8B949E" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Operation}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="12"
+                                                           Foreground="#E6EDF3"
+                                                           Margin="8,0,8,0" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding Hex}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="12"
+                                                           Foreground="#E6EDF3"
+                                                           TextWrapping="Wrap" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                                <Border Grid.Row="1"
+                                        BorderBrush="#30363D"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="10,8">
+                                    <TextBox x:Name="TraceValueText"
+                                             IsReadOnly="True"
+                                             BorderThickness="0"
+                                             FontFamily="Consolas"
+                                             FontSize="12"
+                                             Background="#0D1117"
+                                             Foreground="#E6EDF3"
+                                             TextWrapping="Wrap"
+                                             MinHeight="54"
+                                             VerticalScrollBarVisibility="Auto" />
+                                </Border>
+                            </Grid>
                         </TabItem>
                         <TabItem Header="Blocklist">
                             <Grid Background="#0D1117">
