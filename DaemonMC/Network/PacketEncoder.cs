@@ -7,6 +7,7 @@ using DaemonMC.Entities;
 using DaemonMC.Items;
 using DaemonMC.Network.Enumerations;
 using DaemonMC.Network.RakNet;
+using DaemonMC.Telemetry;
 using DaemonMC.Utils;
 using DaemonMC.Utils.Game;
 using DaemonMC.Utils.Text;
@@ -20,6 +21,7 @@ namespace DaemonMC.Network
         public IPEndPoint clientEp = null!;
         public int protocolVersion = 0;
         public MemoryStream byteStream;
+        public List<PacketTraceOperation> TraceOperations { get; } = new();
 
         public PacketEncoder(IPEndPoint ep)
         {
@@ -96,6 +98,26 @@ namespace DaemonMC.Network
         {
             byteStream.SetLength(0);
             byteStream.Position = 0;
+            TraceOperations.Clear();
+        }
+
+        public void BeginTrace()
+        {
+            TraceOperations.Clear();
+        }
+
+        private void TraceWrite(string operation, long start)
+        {
+            int length = (int)(byteStream.Position - start);
+            if (length <= 0)
+                return;
+
+            TraceOperations.Add(new PacketTraceOperation
+            {
+                Operation = operation,
+                Offset = (int)start,
+                Length = length
+            });
         }
 
         public void SendPacket(int pkid, bool pooled = true)
@@ -126,6 +148,7 @@ namespace DaemonMC.Network
             clientEp = null;
             byteStream.SetLength(0);
             byteStream.Position = 0;
+            TraceOperations.Clear();
         }
 
         public void PacketId(int id)
@@ -135,30 +158,39 @@ namespace DaemonMC.Network
 
         public void WriteBool(bool value)
         {
+            long start = byteStream.Position;
             byteStream.WriteByte(value ? (byte)1 : (byte)0);
+            TraceWrite(nameof(WriteBool), start);
         }
 
         public void WriteInt(int value)
         {
+            long start = byteStream.Position;
             byte[] bytes = BitConverter.GetBytes(value);
             byteStream.Write(bytes, 0, bytes.Length);
+            TraceWrite(nameof(WriteInt), start);
         }
 
         public void WriteIntBE(int value)
         {
+            long start = byteStream.Position;
             byte[] bytes = BitConverter.GetBytes(value);
             Array.Reverse(bytes);
             byteStream.Write(bytes, 0, bytes.Length);
+            TraceWrite(nameof(WriteIntBE), start);
         }
 
         public void WriteFloat(float value)
         {
+            long start = byteStream.Position;
             byte[] bytes = BitConverter.GetBytes(value);
             byteStream.Write(bytes, 0, bytes.Length);
+            TraceWrite(nameof(WriteFloat), start);
         }
 
         public void WriteVarInt_Signed(int rawValue)
         {
+            long start = byteStream.Position;
             uint value = unchecked((uint)rawValue);
             while ((value & 0xFFFFFF80) != 0)
             {
@@ -166,6 +198,7 @@ namespace DaemonMC.Network
                 value >>= 7;
             }
             byteStream.WriteByte((byte)value);
+            TraceWrite(nameof(WriteVarInt_Signed), start);
         }
 
         public void WriteVarInt(int value)
@@ -175,6 +208,7 @@ namespace DaemonMC.Network
 
         public void WriteVarInt(uint value)
         {
+            long start = byteStream.Position;
             if (value < 0)
             {
                 throw new InvalidOperationException($"WriteVarInt was called with a negative value ({value})");
@@ -186,71 +220,91 @@ namespace DaemonMC.Network
                 value >>= 7;
             }
             byteStream.WriteByte((byte)(value & 127));
+            TraceWrite(nameof(WriteVarInt), start);
         }
 
         public void WriteSignedVarInt(int value)
         {
+            long start = byteStream.Position;
             uint zigzagEncoded = (uint)((value << 1) ^ (value >> 31));
             WriteVarInt(zigzagEncoded);
+            TraceWrite(nameof(WriteSignedVarInt), start);
         }
 
         public void WriteShort(ushort value)
         {
+            long start = byteStream.Position;
             byteStream.WriteByte((byte)value);
             byteStream.WriteByte((byte)(value >> 8));
+            TraceWrite(nameof(WriteShort), start);
         }
 
         public void WriteShort(short value)
         {
+            long start = byteStream.Position;
             byteStream.WriteByte((byte)(value & 0xFF));
             byteStream.WriteByte((byte)((value >> 8) & 0xFF));
+            TraceWrite(nameof(WriteShort), start);
         }
 
         public void WriteShortBE(ushort value)
         {
+            long start = byteStream.Position;
             byteStream.WriteByte((byte)(value >> 8));
             byteStream.WriteByte((byte)value);
+            TraceWrite(nameof(WriteShortBE), start);
         }
 
         public void WriteByte(byte value)
         {
+            long start = byteStream.Position;
             byteStream.WriteByte(value);
+            TraceWrite(nameof(WriteByte), start);
         }
 
         public void WriteBytes(byte[] data, bool writeLength = true)
         {
+            long start = byteStream.Position;
             if (writeLength)
             {
                 WriteVarInt(data.Count());
             }
             byteStream.Write(data, 0, data.Length);
+            TraceWrite(nameof(WriteBytes), start);
         }
 
         public void WriteLongLE(long value)
         {
+            long start = byteStream.Position;
             byte[] valueBytes = BitConverter.GetBytes(value);
             Array.Reverse(valueBytes);
             byteStream.Write(valueBytes, 0, valueBytes.Length);
+            TraceWrite(nameof(WriteLongLE), start);
         }
 
         public void WriteLong(long value)
         {
+            long start = byteStream.Position;
             byte[] valueBytes = BitConverter.GetBytes(value);
             byteStream.Write(valueBytes, 0, valueBytes.Length);
+            TraceWrite(nameof(WriteLong), start);
         }
 
         public void WriteMagic(string magic)
         {
+            long start = byteStream.Position;
             for (int i = 0; i < magic.Length; i += 2)
             {
                 string byteString = magic.Substring(i, 2);
                 byte b = byte.Parse(byteString, System.Globalization.NumberStyles.HexNumber);
                 byteStream.WriteByte(b);
             }
+            TraceWrite(nameof(WriteMagic), start);
         }
 
         public void WriteRakString(string str)
         {
+            long start = byteStream.Position;
             ushort length = (ushort)str.Length;
             byte[] lengthBytes = BitConverter.GetBytes(length);
             Array.Reverse(lengthBytes);
@@ -258,13 +312,16 @@ namespace DaemonMC.Network
 
             byte[] strBytes = Encoding.UTF8.GetBytes(str);
             byteStream.Write(strBytes, 0, strBytes.Length);
+            TraceWrite(nameof(WriteRakString), start);
         }
 
         public void WriteString(string str)
         {
+            long start = byteStream.Position;
             byte[] strBytes = Encoding.UTF8.GetBytes(str);
             WriteVarInt(strBytes.Length);
             byteStream.Write(strBytes, 0, strBytes.Length);
+            TraceWrite(nameof(WriteString), start);
         }
 
         public void WriteStringList(List<string> list)
@@ -278,13 +335,16 @@ namespace DaemonMC.Network
 
         public void WriteMTU(int mtu)
         {
+            long start = byteStream.Position;
             int payloadLength = mtu - 28;
             byte[] payload = new byte[payloadLength];
             byteStream.Write(payload, 0, payload.Length);
+            TraceWrite(nameof(WriteMTU), start);
         }
 
         public void WriteAddress(IPAddressInfo info)
         {
+            long start = byteStream.Position;
             byte[] ipParts = info.IPAddress;
             byte[] ipAddress = new byte[] { ipParts[0], ipParts[1], ipParts[2], ipParts[3] };
 
@@ -295,13 +355,16 @@ namespace DaemonMC.Network
             byte[] portBytes = BitConverter.GetBytes(info.Port);
             Array.Reverse(portBytes);
             byteStream.Write(portBytes, 0, portBytes.Length);
+            TraceWrite(nameof(WriteAddress), start);
         }
 
         public void WriteUInt24LE(uint value)
         {
+            long start = byteStream.Position;
             byteStream.WriteByte((byte)(value & 0xFF));
             byteStream.WriteByte((byte)((value >> 8) & 0xFF));
             byteStream.WriteByte((byte)((value >> 16) & 0xFF));
+            TraceWrite(nameof(WriteUInt24LE), start);
         }
 
         public void WriteVarLong(long value)
@@ -311,6 +374,7 @@ namespace DaemonMC.Network
 
         public void WriteVarLong(ulong value)
         {
+            long start = byteStream.Position;
             if (value < 0)
             {
                 throw new InvalidOperationException($"WriteVarLong was called with a negative value ({value})");
@@ -322,16 +386,20 @@ namespace DaemonMC.Network
                 value >>= 7;
             }
             byteStream.WriteByte((byte)(value & 0x7FUL));
+            TraceWrite(nameof(WriteVarLong), start);
         }
 
         public void WriteSignedVarLong(long value)
         {
+            long start = byteStream.Position;
             ulong zigzagEncoded = (ulong)((value << 1) ^ (value >> 63));
             WriteVarLong(zigzagEncoded);
+            TraceWrite(nameof(WriteSignedVarLong), start);
         }
 
         public void WriteCompoundTag(NbtCompound compoundTag)
         {
+            long start = byteStream.Position;
             NbtFile file = new NbtFile(compoundTag);
 
             file.BigEndian = false;
@@ -340,6 +408,7 @@ namespace DaemonMC.Network
             byte[] serializedTag = file.SaveToBuffer(NbtCompression.None);
 
             byteStream.Write(serializedTag, 0, serializedTag.Length);
+            TraceWrite(nameof(WriteCompoundTag), start);
         }
 
         public void WriteUUID(Guid uuid)

@@ -4,6 +4,7 @@ using System.Text;
 using DaemonMC.Items;
 using DaemonMC.Network.Enumerations;
 using DaemonMC.Network.RakNet;
+using DaemonMC.Telemetry;
 using DaemonMC.Utils;
 using DaemonMC.Utils.Game;
 using DaemonMC.Utils.Text;
@@ -19,6 +20,7 @@ namespace DaemonMC.Network
         public IPEndPoint clientEp;
         public int protocolVersion = 0;
         public Player player;
+        public List<PacketTraceOperation> TraceOperations { get; } = new();
 
         public PacketDecoder(byte[] byteBuffer, IPEndPoint ep)
         {
@@ -130,39 +132,68 @@ namespace DaemonMC.Network
             this.buffer = buffer;
             this.readOffset = 0;
             this.packetBuffers.Clear();
+            this.TraceOperations.Clear();
+        }
+
+        public void BeginTrace()
+        {
+            TraceOperations.Clear();
+        }
+
+        private void TraceRead(string operation, int start)
+        {
+            int length = readOffset - start;
+            if (length <= 0)
+                return;
+
+            TraceOperations.Add(new PacketTraceOperation
+            {
+                Operation = operation,
+                Offset = start,
+                Length = length
+            });
         }
 
         public bool ReadBool()
         {
+            int start = readOffset;
             byte b = buffer[readOffset];
             readOffset += 1;
+            TraceRead(nameof(ReadBool), start);
             return b == 1 ? true : false;
         }
 
         public int ReadInt()
         {
+            int start = readOffset;
             int a = BitConverter.ToInt32(buffer, readOffset);
             readOffset += 4;
+            TraceRead(nameof(ReadInt), start);
             return a;
         }
 
         public float ReadFloat()
         {
+            int start = readOffset;
             float a = BitConverter.ToSingle(buffer, readOffset);
             readOffset += 4;
+            TraceRead(nameof(ReadFloat), start);
             return a;
         }
 
         public int ReadIntBE()
         {
+            int start = readOffset;
             Array.Reverse(buffer, readOffset, 4);
             int a = BitConverter.ToInt32(buffer, readOffset);
             readOffset += 4;
+            TraceRead(nameof(ReadIntBE), start);
             return a;
         }
 
         public int ReadVarInt()
         {
+            int start = readOffset;
             int value = 0;
             int size = 0;
 
@@ -179,98 +210,122 @@ namespace DaemonMC.Network
                 size++;
             }
 
+            TraceRead(nameof(ReadVarInt), start);
             return value;
         }
 
         public int ReadSignedVarInt()
         {
 
+            int start = readOffset;
             int rawVarInt = ReadVarInt();
             int value = (rawVarInt >> 1) ^ -(rawVarInt & 1);
+            TraceRead(nameof(ReadSignedVarInt), start);
             return value;
         }
 
         public short ReadSignedShort()
         {
+            int start = readOffset;
             short value = (short)((buffer[readOffset] << 8) | buffer[readOffset + 1]);
             readOffset += 2;
+            TraceRead(nameof(ReadSignedShort), start);
             return value;
         }
 
         public short ReadShortBE()
         {
+            int start = readOffset;
             short value = (short)(buffer[readOffset + 1] | (buffer[readOffset] << 8));
             readOffset += 2;
+            TraceRead(nameof(ReadShortBE), start);
             return value;
         }
 
         public ushort ReadShort()
         {
+            int start = readOffset;
             ushort value = (ushort)((buffer[readOffset] << 8) | buffer[readOffset + 1]);
             readOffset += 2;
+            TraceRead(nameof(ReadShort), start);
             return (ushort)((value >> 8) | (value << 8));
         }
 
         public byte ReadByte()
         {
+            int start = readOffset;
             byte b = buffer[readOffset];
             readOffset += 1;
+            TraceRead(nameof(ReadByte), start);
             return b;
         }
 
         public void ReadBytes(byte[] data)
         {
+            int start = readOffset;
             Array.Copy(buffer, readOffset, data, 0, data.Length);
             readOffset += data.Length;
+            TraceRead(nameof(ReadBytes), start);
         }
 
         public byte[] ReadBytes(int count)
         {
+            int start = readOffset;
             byte[] result = new byte[count];
             Array.Copy(buffer, readOffset, result, 0, count);
             readOffset += count;
+            TraceRead(nameof(ReadBytes), start);
 
             return result;
         }
 
         public byte[] ReadBytes()
         {
+            int start = readOffset;
             int length = ReadVarInt();
             byte[] result = new byte[length];
             Array.Copy(buffer, readOffset, result, 0, length);
             readOffset += length;
+            TraceRead(nameof(ReadBytes), start);
 
             return result;
         }
 
         public long ReadLong()
         {
+            int start = readOffset;
             long value = BitConverter.ToInt64(buffer, readOffset);
             readOffset += 8;
+            TraceRead(nameof(ReadLong), start);
             return value;
         }
 
         public long ReadLongLE()
         {
+            int start = readOffset;
             Array.Reverse(buffer, readOffset, 8);
             long value = BitConverter.ToInt64(buffer, readOffset);
             readOffset += 8;
+            TraceRead(nameof(ReadLongLE), start);
             return value;
         }
 
         public string ReadMagic()
         {
+            int start = readOffset;
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 16; ++i)
             {
                 sb.Append(buffer[readOffset + i].ToString("X2"));
             }
             readOffset += 16;
+            TraceRead(nameof(ReadMagic), start);
             return sb.ToString();
         }
 
         public string ReadRakString()
         {
+            int start = readOffset;
             short length = ReadShortBE();
             if (length < 0 || readOffset + length > buffer.Length)
             {
@@ -279,11 +334,13 @@ namespace DaemonMC.Network
             string str = Encoding.UTF8.GetString(buffer, readOffset, length);
             readOffset += length;
 
+            TraceRead(nameof(ReadRakString), start);
             return str;
         }
 
         public string ReadString()
         {
+            int start = readOffset;
             int length = ReadVarInt();
             if (length < 0 || readOffset + length > buffer.Length)
             {
@@ -292,6 +349,7 @@ namespace DaemonMC.Network
             string str = Encoding.UTF8.GetString(buffer, readOffset, length);
             readOffset += length;
 
+            TraceRead(nameof(ReadString), start);
             return str;
         }
 
@@ -308,17 +366,20 @@ namespace DaemonMC.Network
 
         public short ReadMTU(int lenght)
         {
+            int start = readOffset;
             int paddingSize = lenght - readOffset;
 
             short estimatedMTU = (short)(readOffset + paddingSize + 28);
 
             readOffset = (paddingSize + readOffset);
 
+            TraceRead(nameof(ReadMTU), start);
             return estimatedMTU;
         }
 
         public IPAddressInfo ReadAddress()
         {
+            int start = readOffset;
             byte ipVersion = buffer[readOffset];
             readOffset++;
 
@@ -342,6 +403,7 @@ namespace DaemonMC.Network
                 ReadInt(); //also idk
             }
 
+            TraceRead(nameof(ReadAddress), start);
             return ipAddressInfo;
         }
 
@@ -370,13 +432,16 @@ namespace DaemonMC.Network
 
         public uint ReadUInt24LE()
         {
+            int start = readOffset;
             uint uint24leValue = (uint)(buffer[readOffset] | (buffer[readOffset + 1] << 8) | (buffer[readOffset + 2] << 16));
             readOffset += 3;
+            TraceRead(nameof(ReadUInt24LE), start);
             return uint24leValue;
         }
 
         public long ReadVarLong()
         {
+            int start = readOffset;
             long value = 0;
             int size = 0;
 
@@ -393,14 +458,17 @@ namespace DaemonMC.Network
                 size++;
             }
 
+            TraceRead(nameof(ReadVarLong), start);
             return value;
         }
 
         public long ReadSignedVarLong()
         {
 
+            int start = readOffset;
             long rawVarLong = ReadVarLong();
             long value = (rawVarLong >> 1) ^ -(rawVarLong & 1);
+            TraceRead(nameof(ReadSignedVarLong), start);
             return value;
         }
 

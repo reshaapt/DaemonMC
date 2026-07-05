@@ -11,4 +11,6 @@ public class PacketSnapshot
     public PacketDirection Direction { get; set; }
 
     public byte[]? Buffer { get; set; }
+
+    public List<PacketTraceOperation> TraceOperations { get; set; } = new();
 }

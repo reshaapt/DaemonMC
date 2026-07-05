@@ -16,6 +16,7 @@ namespace DaemonMC.Network
             {
                 try
                 {
+                    decoder.BeginTrace();
                     Decode(decoder);
                 }
                 catch (Exception e)
@@ -46,7 +47,7 @@ namespace DaemonMC.Network
                     switch (handler)
                     {
                         case PacketHandler.Player when decoder.player != null:
-                            PacketTelemetryProducer.Produce(PacketDirection.Received, PacketType.Bedrock, Id, decoder.buffer);
+                            PacketTelemetryProducer.Produce(PacketDirection.Received, PacketType.Bedrock, Id, decoder.buffer, decoder.TraceOperations);
                             decoder.player.HandlePacket(this);
                             break;
                         case PacketHandler.Bedrock:
@@ -70,6 +71,7 @@ namespace DaemonMC.Network
             {
                 if (PluginManager.PacketSent(encoder.clientEp, this))
                 {
+                    encoder.BeginTrace();
                     switch (this)
                     {
                         case UnconnectedPing:
@@ -116,7 +118,7 @@ namespace DaemonMC.Network
                             encoder.handlePacket("raknet");
                             break;
                         default:
-                            PacketTelemetryProducer.Produce(PacketDirection.Sent, PacketType.Bedrock, Id, encoder.byteStream.ToArray()[..(int)encoder.byteStream.Position]);
+                            PacketTelemetryProducer.Produce(PacketDirection.Sent, PacketType.Bedrock, Id, encoder.byteStream.ToArray()[..(int)encoder.byteStream.Position], encoder.TraceOperations);
                             encoder.handlePacket();
                             break;
                     }

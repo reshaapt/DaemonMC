@@ -2,6 +2,7 @@ using System.Buffers;
 using System.IO;
 using System.IO.Pipelines;
 using System.IO.Pipes;
+using System.Text;
 using System.Threading.Channels;
 using PipeOptions = System.IO.Pipes.PipeOptions;
 
@@ -114,7 +115,40 @@ public class PacketTelemetryServer
 
         byte[] payload = Array.Empty<byte>();
         if (payloadLength > 0)
-            payload = frame.Slice(frameLength - payloadLength, payloadLength).ToArray();
+        {
+            payload = frame.Slice(frameReader.Position, payloadLength).ToArray();
+            frameReader.Advance(payloadLength);
+        }
+
+        List<PacketTraceOperation> traceOperations = new();
+        if (frameReader.Remaining >= 4 && frameReader.TryReadLittleEndian(out int traceCount))
+        {
+            if (traceCount < 0)
+                throw new InvalidDataException($"Invalid telemetry trace count {traceCount}.");
+
+            for (int i = 0; i < traceCount; i++)
+            {
+                if (!frameReader.TryReadLittleEndian(out int offset) ||
+                    !frameReader.TryReadLittleEndian(out int length) ||
+                    !frameReader.TryReadLittleEndian(out int operationLength))
+                {
+                    throw new InvalidDataException("Invalid telemetry trace operation header.");
+                }
+
+                if (operationLength < 0 || frameReader.Remaining < operationLength)
+                    throw new InvalidDataException($"Invalid telemetry trace operation length {operationLength}.");
+
+                byte[] operationBytes = frame.Slice(frameReader.Position, operationLength).ToArray();
+                frameReader.Advance(operationLength);
+
+                traceOperations.Add(new PacketTraceOperation
+                {
+                    Operation = Encoding.UTF8.GetString(operationBytes),
+                    Offset = offset,
+                    Length = length
+                });
+            }
+        }
 
         snapshot = new PacketSnapshot
         {
@@ -122,7 +156,8 @@ public class PacketTelemetryServer
             PacketId = packetId,
             Direction = (PacketDirection)direction,
             Timestamp = timestamp,
-            Buffer = payload
+            Buffer = payload,
+            TraceOperations = traceOperations
         };
 
         next = buffer.GetPosition(4 + frameLength);

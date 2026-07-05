@@ -11,7 +11,7 @@ public static class PacketTelemetryProducer
         _writer = writer;
     }
 
-    public static void Produce(PacketDirection direction, PacketType packetType, int packetId, byte[]? buffer = null)
+    public static void Produce(PacketDirection direction, PacketType packetType, int packetId, byte[]? buffer = null, IReadOnlyList<PacketTraceOperation>? traceOperations = null)
     {
         var snap = new PacketSnapshot()
         {
@@ -19,6 +19,12 @@ public static class PacketTelemetryProducer
             PacketType = packetType,
             PacketId = packetId,
             Buffer = buffer,
+            TraceOperations = traceOperations?.Select(operation => new PacketTraceOperation
+            {
+                Operation = operation.Operation,
+                Offset = operation.Offset,
+                Length = operation.Length
+            }).ToList() ?? new List<PacketTraceOperation>(),
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 

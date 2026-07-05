@@ -270,6 +270,7 @@ public partial class MainWindow : Window
             DetailSubtitle.Text = "-";
             SummaryText.Text = string.Empty;
             HexText.Text = string.Empty;
+            TraceList.ItemsSource = null;
             return;
         }
 
@@ -284,6 +285,7 @@ public partial class MainWindow : Window
         DetailSubtitle.Text = $"{packet.Direction} | {packet.LocalTime} | {packet.Size:N0} bytes";
         SummaryText.Text = packet.Summary;
         HexText.Text = packet.HexDump;
+        TraceList.ItemsSource = packet.TraceRows;
     }
 
     private void Clear_OnClick(object sender, RoutedEventArgs e)
@@ -335,6 +337,7 @@ public sealed class PacketSnapshotViewModel
         Direction = snapshot.Direction.ToString();
         Timestamp = snapshot.Timestamp;
         Buffer = snapshot.Buffer ?? Array.Empty<byte>();
+        TraceOperations = snapshot.TraceOperations;
     }
 
     public int Index { get; }
@@ -348,6 +351,8 @@ public sealed class PacketSnapshotViewModel
     public long Timestamp { get; }
 
     public byte[] Buffer { get; }
+
+    public IReadOnlyList<PacketTraceOperation> TraceOperations { get; }
 
     public int Size => Buffer.Length;
 
@@ -365,6 +370,8 @@ public sealed class PacketSnapshotViewModel
     public string HexPreview => Buffer.Length == 0 ? "-" : ToHex(Buffer, Math.Min(Buffer.Length, 16)).Replace(Environment.NewLine, " ");
 
     public string HexDump => Buffer.Length == 0 ? "No payload captured." : BuildHexDump(Buffer, MaxHexDumpBytes);
+
+    public IReadOnlyList<PacketTraceRowViewModel> TraceRows => BuildTraceRows(Buffer, TraceOperations);
 
     public string SearchText => $"{Index} {PacketId} {PacketName} {Direction} {Size} {HexPreview}";
 
@@ -420,6 +427,31 @@ public sealed class PacketSnapshotViewModel
             builder.AppendLine($"... truncated, showing {byteCount:N0} of {data.Length:N0} bytes");
 
         return builder.ToString();
+    }
+
+    private static IReadOnlyList<PacketTraceRowViewModel> BuildTraceRows(byte[] data, IReadOnlyList<PacketTraceOperation> operations)
+    {
+        if (operations.Count == 0)
+            return new[] { new PacketTraceRowViewModel("-", "No trace captured.", string.Empty) };
+
+        List<PacketTraceRowViewModel> rows = new(operations.Count);
+
+        foreach (PacketTraceOperation operation in operations)
+        {
+            int start = Math.Max(operation.Offset, 0);
+            int length = Math.Max(operation.Length, 0);
+            int end = length == 0 ? start : start + length - 1;
+            string bytes = start < data.Length && length > 0
+                ? ToHex(data.Skip(start).Take(Math.Min(length, data.Length - start)).ToArray(), length)
+                : string.Empty;
+
+            rows.Add(new PacketTraceRowViewModel(
+                $"{start:X4}-{end:X4}",
+                operation.Operation,
+                bytes));
+        }
+
+        return rows;
     }
 
     private static string ToHex(byte[] data, int count)
@@ -486,3 +518,5 @@ public sealed class BlockedPacketViewModel
 }
 
 internal readonly record struct PendingPacket(int Index, PacketSnapshot Snapshot);
+
+public sealed record PacketTraceRowViewModel(string Range, string Operation, string Hex);

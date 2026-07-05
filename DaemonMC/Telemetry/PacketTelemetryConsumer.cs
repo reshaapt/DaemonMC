@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.IO.Pipes;
+using System.Text;
 using System.Threading.Channels;
 using PipeOptions = System.IO.Pipes.PipeOptions;
 
@@ -35,7 +36,9 @@ public class PacketTelemetryConsumer
         await foreach (PacketSnapshot snap in _reader.ReadAllAsync())
         {
             byte[] payload = snap.Buffer ?? Array.Empty<byte>();
-            int frameLength = 4 + 1 + 8 + 4 + payload.Length;
+            List<TraceOperationPayload> traceOperations = BuildTracePayload(snap.TraceOperations);
+            int traceLength = 4 + traceOperations.Sum(operation => 12 + operation.OperationBytes.Length);
+            int frameLength = 4 + 1 + 8 + 4 + payload.Length + traceLength;
             Span<byte> buffer = writer.GetSpan(4 + frameLength);
 
             BinaryPrimitives.WriteInt32LittleEndian(buffer[..4], frameLength);
@@ -45,6 +48,19 @@ public class PacketTelemetryConsumer
             BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(17, 4), payload.Length);
             payload.CopyTo(buffer[21..]);
 
+            int offset = 21 + payload.Length;
+            BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(offset, 4), traceOperations.Count);
+            offset += 4;
+
+            foreach (TraceOperationPayload operation in traceOperations)
+            {
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(offset, 4), operation.Offset);
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(offset + 4, 4), operation.Length);
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Slice(offset + 8, 4), operation.OperationBytes.Length);
+                operation.OperationBytes.CopyTo(buffer.Slice(offset + 12));
+                offset += 12 + operation.OperationBytes.Length;
+            }
+
             writer.Advance(4 + frameLength);
             FlushResult flush = await writer.FlushAsync();
 
@@ -52,4 +68,19 @@ public class PacketTelemetryConsumer
                 break;
         }
     }
+
+    private static List<TraceOperationPayload> BuildTracePayload(IReadOnlyList<PacketTraceOperation> traceOperations)
+    {
+        List<TraceOperationPayload> result = new(traceOperations.Count);
+
+        foreach (PacketTraceOperation operation in traceOperations)
+        {
+            byte[] operationBytes = Encoding.UTF8.GetBytes(operation.Operation);
+            result.Add(new TraceOperationPayload(operation.Operation, operation.Offset, operation.Length, operationBytes));
+        }
+
+        return result;
+    }
+
+    private readonly record struct TraceOperationPayload(string Operation, int Offset, int Length, byte[] OperationBytes);
 }
