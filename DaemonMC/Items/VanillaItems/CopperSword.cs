@@ -5,9 +5,10 @@ namespace DaemonMC.Items.VanillaItems
         public CopperSword()
         {
             Name = "minecraft:copper_sword";
-            Id = 773;
+            Id = 774;
             Version = 2;
             ComponentBased = false;
+            ComponentData = "";
         }
     }
 }

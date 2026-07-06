@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using DaemonMC.Utils;
 using fNbt;
 
 namespace Test
@@ -81,6 +82,7 @@ namespace Test
                 int id = obj.GetProperty("runtime_id").GetInt32();
                 int version = obj.GetProperty("version").GetInt32();
                 bool componentBased = obj.GetProperty("component_based").GetBoolean();
+                string componentNbt = obj.TryGetProperty("component_nbt", out JsonElement value) ? value.GetString() : "";
 
                 string className = FixCase(name.Split(':')[1]);
 
@@ -95,6 +97,7 @@ namespace DaemonMC.Items.VanillaItems
             Id = {id};
             Version = {version};
             ComponentBased = {(componentBased ? "true" : "false")};
+            ComponentData = {componentNbt};
         }}
     }}
 }}";
