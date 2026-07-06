@@ -198,7 +198,7 @@ namespace DaemonMC.Network.Bedrock
 
                     var creativeInventory = new CreativeContent
                     {
-
+                        Groups = CreativeContentManager.Groups,
                     };
                     player.Send(creativeInventory);
 
