@@ -22,10 +22,17 @@ public class PacketTelemetryConsumer
     {
         while (true)
         {
-            await using var pipe = new NamedPipeClientStream(serverName: ".", pipeName: PipeName, direction: PipeDirection.Out, options: PipeOptions.Asynchronous);
-            await pipe.ConnectAsync();
+            try
+            {
+                await using var pipe = new NamedPipeClientStream(serverName: ".", pipeName: PipeName, direction: PipeDirection.Out, options: PipeOptions.Asynchronous);
+                await pipe.ConnectAsync();
 
-            await Consume(pipe);
+                await Consume(pipe);
+            }
+            catch (IOException)
+            {
+                await Task.Delay(500);
+            }
         }
     }
 
