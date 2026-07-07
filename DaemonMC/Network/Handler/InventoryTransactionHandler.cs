@@ -1,0 +1,111 @@
+﻿using DaemonMC.Entities;
+using DaemonMC.Items;
+using DaemonMC.Network.Bedrock;
+using DaemonMC.Network.Enumerations;
+using DaemonMC.Plugin;
+using DaemonMC.Utils.Game;
+using DaemonMC.Utils.Text;
+
+namespace DaemonMC.Network.Handler
+{
+    public class InventoryTransactionHandler
+    {
+        public static void TakeAction(Player player, Actions action)
+        {
+            if (action.Destination.ContainerName.ContainerName == ContainerEnumName.CursorContainer)
+            {
+                var sourceItem = player.Inventory.Get(action.Source.Slot);
+                var cursorItem = sourceItem.Clone();
+                var count = action.Amount;
+
+                Log.debug($"[TakeAction] Requested {count} items from slot {action.Source.Slot} that have {sourceItem.Count} {sourceItem.Name}");
+
+                if (!PluginManager.InventoryAction(player, action, sourceItem, new Items.VanillaItems.Air()))
+                {
+                    Log.debug($"[TakeAction] Cancelled by plugin"); //todo figure out how to update inventory correctly while UI is open
+                    player.Inventory.Send(ContainerId.PlayerOnlyUi, 0, new Items.VanillaItems.Air(), ContainerEnumName.CursorContainer);
+                    player.Inventory.Send(ContainerId.Inventory, action.Source.Slot, sourceItem);
+                    return;
+                }
+
+                cursorItem.Count = count;
+                player.Inventory.Cursor = cursorItem;
+
+                sourceItem.Count -= count;
+
+                Item destinationItem = new Items.VanillaItems.Air();
+
+                if (sourceItem.Count > 0)
+                {
+                    destinationItem = sourceItem;
+                }
+
+                player.Inventory.Set(ContainerId.Inventory, action.Source.Slot, destinationItem);
+                Log.debug($"[TakeAction] Cursor have now {cursorItem.Count} {cursorItem.Name}. Source slot {action.Source.Slot} have now {destinationItem.Count} {destinationItem.Name}");
+            }
+            else
+            {
+                Log.error("Inventory error 2");
+            }
+        }
+
+        public static void PlaceAction(Player player, Actions action)
+        {
+            if (action.Destination.ContainerName.ContainerName == ContainerEnumName.InventoryContainer || action.Destination.ContainerName.ContainerName == ContainerEnumName.HotbarContainer)
+            {
+                Item sourceItem = player.Inventory.Cursor;
+                Item destinationItem = player.Inventory.Get(action.Destination.Slot);
+                var count = action.Amount;
+
+                Log.debug($"[PlaceAction] Requested {count} items from slot Cursor that have {sourceItem.Count} {sourceItem.Name}");
+
+                if (!PluginManager.InventoryAction(player, action, new Items.VanillaItems.Air(), destinationItem))
+                {
+                    Log.debug($"[PlaceAction] Cancelled by plugin"); //todo even more bugged
+                    player.Inventory.Send(ContainerId.PlayerOnlyUi, 0, sourceItem, ContainerEnumName.CursorContainer);
+                    player.Inventory.Send(ContainerId.Inventory, action.Destination.Slot, destinationItem);
+                    return;
+                }
+
+                if (sourceItem is Items.VanillaItems.Air)
+                {
+                    Log.debug($"[PlaceAction] Cancelled because cursor inventory is empty");
+                    return;
+                }
+
+                sourceItem.Count -= count;
+                if (destinationItem is Items.VanillaItems.Air) //empty slot
+                {
+                    destinationItem = sourceItem.Clone();
+                    destinationItem.Count = count;
+                    Log.debug($"[PlaceAction] Adding new {destinationItem.Name} with count {destinationItem.Count} in empty slot {action.Destination.Slot}");
+                }
+                else
+                {
+                    Log.debug($"[PlaceAction] {destinationItem.Name} with count {destinationItem.Count} already in slot {action.Destination.Slot}. Adding more {count}. Expected total {destinationItem.Count + count}");
+                    destinationItem.Count += count;
+                }
+
+                if (sourceItem.Count <= 0)
+                {
+                    sourceItem = new Items.VanillaItems.Air();
+                }
+
+                player.Inventory.Cursor = sourceItem;
+                player.Inventory.Set(ContainerId.Inventory, action.Destination.Slot, destinationItem);
+                Log.debug($"[PlaceAction] Cursor have now {sourceItem.Count} {sourceItem.Name}. Destination slot {action.Destination.Slot} have now {destinationItem.Count} {destinationItem.Name}");
+            }
+            else
+            {
+                Log.error("Inventory error 3");
+            }
+        }
+
+        public static void DeclineRequest(Player player, int requestId)
+        {
+            var packet = new ItemStackResponse();
+            packet.ItemStack.Add(new ItemStackResponseInfo() { RequestId = requestId, Result = 1 });
+            player.Send(packet);
+        }
+    }
+}

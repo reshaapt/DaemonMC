@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using DaemonMC.Items;
+using DaemonMC.Network.Enumerations;
 
 namespace DaemonMC.Utils.Game
 {
@@ -32,16 +33,36 @@ namespace DaemonMC.Utils.Game
 
     public class FullContainerName
     {
-        public byte ContainerName { get; set; } = 0;
+        public ContainerEnumName ContainerName { get; set; } = 0;
         public int? DynamicId { get; set; } = 0;
     }
 
     public class Actions
     {
-        public byte ActionsType { get; set; }
+        public ItemStackRequestActionType ActionsType { get; set; }
         public byte Amount { get; set; }
         public ItemStackRequestSlotInfo Source { get; set; }
         public ItemStackRequestSlotInfo Destination { get; set; }
+    }
+
+    public class TakeAction : Actions
+    {
+    }
+
+    public class PlaceAction : Actions
+    {
+    }
+
+    public class CraftCreativeAction : Actions
+    {
+        public int ItemId { get; set; }
+        public byte CraftCount { get; set; }
+    }
+
+    public class CraftResults_DEPRECATEDASKTYLAING : Actions
+    {
+        public List<Item> Items { get; set; }
+        public byte CraftCount { get; set; }
     }
 
     public class ItemStackRequestSlotInfo
@@ -55,6 +76,20 @@ namespace DaemonMC.Utils.Game
     {
         public byte ContainerId { get; set; } = 0;
         public byte[] Slot { get; set; } = Array.Empty<byte>();
+    }
+
+    public class ItemStack
+    {
+        public int RequestId { get; set; } = 0;
+        public List<Actions> Actions { get; set; } = new List<Actions>();
+        public List<string> StringToFilter { get; set; } = new List<string>();
+        public int StringToFilterOrigin { get; set; } = 0;
+    }
+
+    public class ItemStackResponseInfo
+    {
+        public byte Result { get; set; } = 0; //0 transaction done successfully, 1 unsuccessfully
+        public int RequestId { get; set; } = 0;
     }
 
     public enum TransactionType

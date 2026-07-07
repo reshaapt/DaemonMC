@@ -8,8 +8,6 @@ namespace DaemonMC.Network.Bedrock
         public override int Id => (int) Info.Bedrock.CreativeContent;
         
         public List<CreativeItemGroup>? Groups { get; set; } = null;
-
-        public Dictionary<Item, CreativeItemGroup>? Items { get; set; } = null;
         
         protected override void Decode(PacketDecoder decoder)
         {
@@ -18,7 +16,7 @@ namespace DaemonMC.Network.Bedrock
 
         protected override void Encode(PacketEncoder encoder)
         {
-            if (Groups == null || Items == null)
+            if (Groups == null)
             {
                 encoder.WriteVarInt(0);
                 encoder.WriteVarInt(0);
@@ -35,16 +33,21 @@ namespace DaemonMC.Network.Bedrock
                 encoder.WriteItemInstance(group.Icon ?? ItemPalette.GetItem("minecraft:air"));
             }
 
+            encoder.WriteVarInt(Groups.Sum(g => g.Items.Count));
+
             var creativeNetId = 0;
 
-            encoder.WriteVarInt(Items.Count);
-
-            foreach (var entry in Items)
+            for (int groupIndex = 0; groupIndex < Groups.Count; groupIndex++)
             {
-                creativeNetId++;
-                encoder.WriteVarInt(creativeNetId);
-                encoder.WriteItemInstance(entry.Key);
-                encoder.WriteVarInt(entry.Value?.GroupId ?? 0);
+                var group = Groups[groupIndex];
+
+                foreach (var item in group.Items)
+                {
+                    creativeNetId++;
+                    encoder.WriteVarInt(creativeNetId);
+                    encoder.WriteItemInstance(item);
+                    encoder.WriteVarInt(groupIndex);
+                }
             }
         }
     }
