@@ -7,6 +7,7 @@ using DaemonMC.Level;
 using DaemonMC.Network;
 using DaemonMC.Network.Bedrock;
 using DaemonMC.Network.Enumerations;
+using DaemonMC.Network.Handler;
 using DaemonMC.Network.RakNet;
 using DaemonMC.Plugin;
 using DaemonMC.Utils;
@@ -691,6 +692,39 @@ namespace DaemonMC
 
         internal void HandlePacket(Packet packet)
         {
+            if (packet is ItemStackRequest itemStackRequest)
+            {
+                //Log.dump(itemStackRequest);
+                var itemStack = itemStackRequest.ItemStack;
+
+                foreach (var stack in itemStack)
+                {
+                    var actions = stack.Actions;
+
+                    foreach (var action in actions)
+                    {
+                        switch (action.ActionsType)
+                        {
+                            case ItemStackRequestActionType.Take:
+                                InventoryTransactionHandler.TakeAction(this, action);
+                                break;
+                            case ItemStackRequestActionType.Place:
+                                InventoryTransactionHandler.PlaceAction(this, action);
+                                break;
+                            case ItemStackRequestActionType.CraftCreative:
+                                break;
+                            case ItemStackRequestActionType.CraftResults_DEPRECATEDASKTYLAING:
+                                break;
+                            default:
+                                Log.warn($"Unhandled inventory action {action.ActionsType} with RequestId {stack.RequestId}");
+                               // InventoryTransactionHandler.DeclineRequest(this, stack.RequestId); nope
+                               // todo resend player inventory
+                                return;
+                        }
+                    }
+                }
+            }
+
             if (packet is PlayerAuthInput playerAuthInput)
             {
                 Tick = playerAuthInput.Tick;

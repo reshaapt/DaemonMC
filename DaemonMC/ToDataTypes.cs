@@ -74,7 +74,7 @@ namespace DaemonMC
             }
         }
 
-        public static NbtCompound Base64ToNbt(string base64)
+        public static NbtCompound Base64ToNbt(string base64, bool littleEdian, bool varInt)
         {
             base64 = base64.Replace("\\/", "/");
 
@@ -82,7 +82,8 @@ namespace DaemonMC
 
             var file = new NbtFile
             {
-                BigEndian = false,
+                BigEndian = !littleEdian,
+                UseVarInt = varInt,
             };
 
             file.LoadFromBuffer(bytes, 0, bytes.Length, NbtCompression.None);

@@ -151,6 +151,9 @@ namespace DaemonMC.Network.Bedrock
                     case Info.Bedrock.MobEquipment:
                         new MobEquipment().DecodePacket(decoder);
                         break;
+                    case Info.Bedrock.ItemStackRequest:
+                        new ItemStackRequest().DecodePacket(decoder);
+                        break;
                     case Info.Bedrock.ClientMovementPredictionSync:
                         new ClientMovementPredictionSync().DecodePacket(decoder);
                         break;

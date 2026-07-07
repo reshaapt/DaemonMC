@@ -763,7 +763,7 @@ namespace DaemonMC.Network
 
         public void WriteContainerName(FullContainerName ContainerName)
         {
-            WriteByte(ContainerName.ContainerName);
+            WriteByte((byte)ContainerName.ContainerName);
             WriteOptional(ContainerName.DynamicId == 0 ? null : () => WriteSignedVarInt((int)ContainerName.DynamicId));
         }
 
@@ -901,6 +901,20 @@ namespace DaemonMC.Network
                 WriteString(shape.Name);
                 WriteShort(id);
                 id++;
+            }
+        }
+
+        public void WriteItemStackResponse(List<ItemStackResponseInfo> itemStackResponse)
+        {
+            WriteVarInt(itemStackResponse.Count);
+            foreach (var response in itemStackResponse)
+            {
+                WriteByte(response.Result);
+                WriteVarInt(response.RequestId);
+                if (response.RequestId == 0) //success
+                {
+                    //todo
+                }
             }
         }
 
