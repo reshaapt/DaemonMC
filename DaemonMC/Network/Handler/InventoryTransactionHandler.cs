@@ -1,5 +1,4 @@
-﻿using DaemonMC.Entities;
-using DaemonMC.Items;
+﻿using DaemonMC.Items;
 using DaemonMC.Network.Bedrock;
 using DaemonMC.Network.Enumerations;
 using DaemonMC.Plugin;
@@ -10,11 +9,21 @@ namespace DaemonMC.Network.Handler
 {
     public class InventoryTransactionHandler
     {
-        public static void TakeAction(Player player, Actions action)
+        public static void TakeAction(Player player, TakeAction action, ItemStack itemStack)
         {
             if (action.Destination.ContainerName.ContainerName == ContainerEnumName.CursorContainer)
             {
-                var sourceItem = player.Inventory.Get(action.Source.Slot);
+                Item sourceItem = new Items.VanillaItems.Air();
+
+                if (action.Source.ContainerName.ContainerName == ContainerEnumName.HotbarContainer || action.Source.ContainerName.ContainerName == ContainerEnumName.InventoryContainer) //player inventory
+                {
+                    sourceItem = player.Inventory.Get(action.Source.Slot);
+                }
+                else if (action.Source.ContainerName.ContainerName == ContainerEnumName.CreatedOutputContainer)
+                {
+                    sourceItem = itemStack.OutputContainer;
+                }
+
                 var cursorItem = sourceItem.Clone();
                 var count = action.Amount;
 
@@ -49,7 +58,7 @@ namespace DaemonMC.Network.Handler
             }
         }
 
-        public static void PlaceAction(Player player, Actions action)
+        public static void PlaceAction(Player player, PlaceAction action)
         {
             if (action.Destination.ContainerName.ContainerName == ContainerEnumName.InventoryContainer || action.Destination.ContainerName.ContainerName == ContainerEnumName.HotbarContainer)
             {
@@ -98,6 +107,16 @@ namespace DaemonMC.Network.Handler
             else
             {
                 Log.error("Inventory error 3");
+            }
+        }
+
+        public static void CreaftCreativeAction(Player player, CraftCreativeAction action, ItemStack itemStack)
+        {
+            var item = CreativeContentManager.GetItemByNetId(action.ItemId);
+
+            if (item != null)
+            {
+                itemStack.OutputContainer = item;
             }
         }
 

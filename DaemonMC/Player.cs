@@ -706,14 +706,16 @@ namespace DaemonMC
                         switch (action.ActionsType)
                         {
                             case ItemStackRequestActionType.Take:
-                                InventoryTransactionHandler.TakeAction(this, action);
+                                InventoryTransactionHandler.TakeAction(this, (TakeAction)action, stack);
                                 break;
                             case ItemStackRequestActionType.Place:
-                                InventoryTransactionHandler.PlaceAction(this, action);
+                                InventoryTransactionHandler.PlaceAction(this, (PlaceAction)action);
                                 break;
                             case ItemStackRequestActionType.CraftCreative:
+                                InventoryTransactionHandler.CreaftCreativeAction(this, (CraftCreativeAction)action, stack);
                                 break;
                             case ItemStackRequestActionType.CraftResults_DEPRECATEDASKTYLAING:
+                                //still sent from client but couldn't find use
                                 break;
                             default:
                                 Log.warn($"Unhandled inventory action {action.ActionsType} with RequestId {stack.RequestId}");
