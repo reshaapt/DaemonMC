@@ -773,6 +773,13 @@ namespace DaemonMC.Network
                             place.Destination = ReadSlotInfo();
                             stack.Actions.Add(place);
                             break;
+                        case ItemStackRequestActionType.Destroy:
+                            var destory = new DestoryAction();
+                            destory.ActionsType = actionType;
+                            destory.Amount = ReadByte();
+                            destory.Source = ReadSlotInfo();
+                            stack.Actions.Add(destory);
+                            break;
                         case ItemStackRequestActionType.CraftCreative:
                             var craftCreative = new CraftCreativeAction();
                             craftCreative.ActionsType = actionType;

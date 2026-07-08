@@ -54,6 +54,10 @@ namespace DaemonMC.Utils.Game
     {
     }
 
+    public class DestoryAction : Actions
+    {
+    }
+
     public class CraftCreativeAction : Actions
     {
         public int ItemId { get; set; }

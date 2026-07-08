@@ -709,7 +709,10 @@ namespace DaemonMC
                                 InventoryTransactionHandler.TakeAction(this, (TakeAction)action, stack);
                                 break;
                             case ItemStackRequestActionType.Place:
-                                InventoryTransactionHandler.PlaceAction(this, (PlaceAction)action);
+                                InventoryTransactionHandler.PlaceAction(this, (PlaceAction)action, stack);
+                                break;
+                            case ItemStackRequestActionType.Destroy:
+                                InventoryTransactionHandler.DestoryAction(this, (DestoryAction)action);
                                 break;
                             case ItemStackRequestActionType.CraftCreative:
                                 InventoryTransactionHandler.CreaftCreativeAction(this, (CraftCreativeAction)action, stack);
