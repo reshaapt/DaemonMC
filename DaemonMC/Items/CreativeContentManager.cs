@@ -5,7 +5,8 @@ namespace DaemonMC.Items
 {
     public class CreativeContentManager
     {
-        public static List<CreativeItemGroup> Groups { get; set; } = new List<CreativeItemGroup>();
+        public static List<CreativeItemGroup> Groups { get; set; } = new();
+        private static readonly List<Item> _creativeItems = new();
 
         public static void AddGroup(CreativeItemGroup itemGroup)
         {
@@ -55,6 +56,31 @@ namespace DaemonMC.Items
             {
                 return Groups.IndexOf(group);
             }
+        }
+
+        public static Item? GetItemByNetId(int creativeNetId)
+        {
+            if ((creativeNetId - 1) >= _creativeItems.Count)
+            {
+                Log.warn($"[CreaftCreativeAction] Couldn't get item by {creativeNetId}. CreativeContentManager was probably modified during runtime. More info: github.com/TeamDeamonMC/DaemonMC/wiki/API-%E2%80%90-CreativeContentManager");
+                return null;
+            }
+            return _creativeItems[creativeNetId - 1];
+        }
+
+        public static void Init()
+        {
+            _creativeItems.Clear();
+
+            foreach (var group in Groups)
+            {
+                foreach (var item in group.Items)
+                {
+                    _creativeItems.Add(item);
+                }
+            }
+
+            Log.debug($"[CreativeContentManager] Initialized {_creativeItems.Count} items");
         }
     }
 }
