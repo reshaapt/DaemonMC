@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using DaemonMC.Items;
+using DaemonMC.Items.VanillaItems;
 using DaemonMC.Network.Enumerations;
 
 namespace DaemonMC.Utils.Game
@@ -53,6 +54,10 @@ namespace DaemonMC.Utils.Game
     {
     }
 
+    public class DestoryAction : Actions
+    {
+    }
+
     public class CraftCreativeAction : Actions
     {
         public int ItemId { get; set; }
@@ -84,6 +89,7 @@ namespace DaemonMC.Utils.Game
         public List<Actions> Actions { get; set; } = new List<Actions>();
         public List<string> StringToFilter { get; set; } = new List<string>();
         public int StringToFilterOrigin { get; set; } = 0;
+        public Item OutputContainer { get; set; } = new Air();
     }
 
     public class ItemStackResponseInfo

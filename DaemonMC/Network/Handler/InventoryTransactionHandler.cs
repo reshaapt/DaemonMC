@@ -1,5 +1,4 @@
-﻿using DaemonMC.Entities;
-using DaemonMC.Items;
+﻿using DaemonMC.Items;
 using DaemonMC.Network.Bedrock;
 using DaemonMC.Network.Enumerations;
 using DaemonMC.Plugin;
@@ -10,11 +9,26 @@ namespace DaemonMC.Network.Handler
 {
     public class InventoryTransactionHandler
     {
-        public static void TakeAction(Player player, Actions action)
+        public static void TakeAction(Player player, TakeAction action, ItemStack itemStack)
         {
             if (action.Destination.ContainerName.ContainerName == ContainerEnumName.CursorContainer)
             {
-                var sourceItem = player.Inventory.Get(action.Source.Slot);
+                Item sourceItem = new Items.VanillaItems.Air();
+
+                if (action.Source.ContainerName.ContainerName == ContainerEnumName.HotbarContainer || action.Source.ContainerName.ContainerName == ContainerEnumName.InventoryContainer) //player inventory
+                {
+                    sourceItem = player.Inventory.Get(action.Source.Slot);
+                }
+                else if (action.Source.ContainerName.ContainerName == ContainerEnumName.CreatedOutputContainer)
+                {
+                    sourceItem = itemStack.OutputContainer;
+                }
+                else
+                {
+                    Log.error("Inventory error 6");
+                    return;
+                }
+
                 var cursorItem = sourceItem.Clone();
                 var count = action.Amount;
 
@@ -30,6 +44,11 @@ namespace DaemonMC.Network.Handler
 
                 cursorItem.Count = count;
                 player.Inventory.Cursor = cursorItem;
+
+                if (action.Source.ContainerName.ContainerName == ContainerEnumName.CreatedOutputContainer)
+                {
+                    return;
+                }
 
                 sourceItem.Count -= count;
 
@@ -49,15 +68,30 @@ namespace DaemonMC.Network.Handler
             }
         }
 
-        public static void PlaceAction(Player player, Actions action)
+        public static void PlaceAction(Player player, PlaceAction action, ItemStack itemStack)
         {
-            if (action.Destination.ContainerName.ContainerName == ContainerEnumName.InventoryContainer || action.Destination.ContainerName.ContainerName == ContainerEnumName.HotbarContainer)
+            if (action.Destination.ContainerName.ContainerName == ContainerEnumName.InventoryContainer || action.Destination.ContainerName.ContainerName == ContainerEnumName.HotbarContainer || action.Destination.ContainerName.ContainerName == ContainerEnumName.CombinedHotbarAndInventoryContainer)
             {
-                Item sourceItem = player.Inventory.Cursor;
+                Item sourceItem = new Items.VanillaItems.Air();
+
+                if (action.Source.ContainerName.ContainerName == ContainerEnumName.CursorContainer)
+                {
+                    sourceItem = player.Inventory.Cursor;
+                }
+                else if (action.Source.ContainerName.ContainerName == ContainerEnumName.CreatedOutputContainer)
+                {
+                    sourceItem = itemStack.OutputContainer;
+                }
+                else
+                {
+                    Log.error("Inventory error 5");
+                    return;
+                }
+
                 Item destinationItem = player.Inventory.Get(action.Destination.Slot);
                 var count = action.Amount;
 
-                Log.debug($"[PlaceAction] Requested {count} items from slot Cursor that have {sourceItem.Count} {sourceItem.Name}");
+                Log.debug($"[PlaceAction] Requested {count} items from inventory {action.Source.ContainerName.ContainerName} {action.Source.Slot} slot that have {sourceItem.Count} {sourceItem.Name}");
 
                 if (!PluginManager.InventoryAction(player, action, new Items.VanillaItems.Air(), destinationItem))
                 {
@@ -73,7 +107,8 @@ namespace DaemonMC.Network.Handler
                     return;
                 }
 
-                sourceItem.Count -= count;
+                if (action.Source.ContainerName.ContainerName == ContainerEnumName.CursorContainer) sourceItem.Count -= count;
+
                 if (destinationItem is Items.VanillaItems.Air) //empty slot
                 {
                     destinationItem = sourceItem.Clone();
@@ -86,18 +121,54 @@ namespace DaemonMC.Network.Handler
                     destinationItem.Count += count;
                 }
 
+                if (action.Source.ContainerName.ContainerName == ContainerEnumName.CursorContainer)
+                {
+                    if (sourceItem.Count <= 0)
+                    {
+                        sourceItem = new Items.VanillaItems.Air();
+                    }
+
+                    player.Inventory.Cursor = sourceItem;
+                }
+
+                player.Inventory.Set(ContainerId.Inventory, action.Destination.Slot, destinationItem);
+                Log.debug($"[PlaceAction] {action.Source.ContainerName.ContainerName} {action.Source.Slot} slot have now {sourceItem.Count} {sourceItem.Name}. Destination slot {action.Destination.Slot} have now {destinationItem.Count} {destinationItem.Name}");
+            }
+            else
+            {
+                Log.error("Inventory error 3");
+            }
+        }
+
+        public static void DestoryAction(Player player, DestoryAction action)
+        {
+            if (action.Source.ContainerName.ContainerName == ContainerEnumName.CursorContainer)
+            {
+                Item sourceItem = player.Inventory.Cursor;
+                var count = action.Amount;
+
+                sourceItem.Count -= count;
+
                 if (sourceItem.Count <= 0)
                 {
                     sourceItem = new Items.VanillaItems.Air();
                 }
 
                 player.Inventory.Cursor = sourceItem;
-                player.Inventory.Set(ContainerId.Inventory, action.Destination.Slot, destinationItem);
-                Log.debug($"[PlaceAction] Cursor have now {sourceItem.Count} {sourceItem.Name}. Destination slot {action.Destination.Slot} have now {destinationItem.Count} {destinationItem.Name}");
+                Log.debug($"[DestroyAction] Cursor have now {sourceItem.Count} {sourceItem.Name}.");
             }
             else
             {
-                Log.error("Inventory error 3");
+                Log.error("Inventory error 4");
+            }
+        }
+        public static void CreaftCreativeAction(Player player, CraftCreativeAction action, ItemStack itemStack)
+        {
+            var item = CreativeContentManager.GetItemByNetId(action.ItemId);
+
+            if (item != null)
+            {
+                itemStack.OutputContainer = item;
             }
         }
 
