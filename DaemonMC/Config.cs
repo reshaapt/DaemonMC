@@ -73,13 +73,13 @@ namespace DaemonMC
             {
                 case "survival":
                     return 0;
-                case "adventure":
-                    return 1;
                 case "creative":
+                    return 1;
+                case "adventure":
                     return 2;
                 default:
                     Log.warn($"Unknown GameMode {gameMode}. Check DaemonMC.yaml.");
-                    return 2;
+                    return 1;
             }
         }
 

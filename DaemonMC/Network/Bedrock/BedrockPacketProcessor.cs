@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Security.Cryptography;
 using DaemonMC.Biomes;
+using DaemonMC.Commands;
 using DaemonMC.Entities;
 using DaemonMC.Items;
 using DaemonMC.Level;
@@ -80,7 +81,7 @@ namespace DaemonMC.Network.Bedrock
                 player.EntityID = EntityId;
                 player.GameMode = DaemonMC.GameMode;
 
-                if (player.GameMode == 2)
+                if (player.GameMode == 1)
                 {
                     player.Abilities[0].AbilityValues.MayFly = true;
                     player.Abilities[0].AbilityValues.WorldBuilder = true;

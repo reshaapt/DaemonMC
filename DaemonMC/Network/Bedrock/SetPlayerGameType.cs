@@ -13,7 +13,7 @@
 
         protected override void Encode(PacketEncoder encoder)
         {
-            encoder.WriteVarInt(GameMode);
+            encoder.WriteSignedVarInt(GameMode);
         }
     }
 }

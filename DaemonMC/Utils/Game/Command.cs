@@ -1,4 +1,6 @@
-﻿namespace DaemonMC.Utils.Game
+﻿using DaemonMC.Commands;
+
+namespace DaemonMC.Utils.Game
 {
     public class Command
     {

@@ -6,7 +6,7 @@ using DaemonMC.Utils;
 using DaemonMC.Utils.Game;
 using DaemonMC.Utils.Text;
 
-namespace DaemonMC
+namespace DaemonMC.Commands
 {
     public class CommandManager
     {

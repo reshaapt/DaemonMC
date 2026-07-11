@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Numerics;
 using DaemonMC.Blocks;
+using DaemonMC.Commands;
 using DaemonMC.Entities;
 using DaemonMC.Forms;
 using DaemonMC.Level;
@@ -336,11 +337,38 @@ namespace DaemonMC
         public void SetGameMode(int gameMode)
         {
             GameMode = gameMode;
-            SetPlayerGameType packet = new SetPlayerGameType()
+            var abilityValues = Abilities[0].AbilityValues;
+            var isCreative = gameMode == 1;
+            var isAdventure = gameMode == 2;
+
+            abilityValues.Build = !isAdventure;
+            abilityValues.Mine = !isAdventure;
+            abilityValues.DoorsAndSwitches = !isAdventure;
+            abilityValues.OpenContainers = !isAdventure;
+            abilityValues.AttackPlayers = true;
+            abilityValues.AttackMobs = true;
+            abilityValues.MayFly = isCreative;
+            abilityValues.Flying = isCreative;
+            abilityValues.Instabuild = isCreative;
+            abilityValues.WorldBuilder = isCreative;
+            abilityValues.NoClip = false;
+
+            var packet = new SetPlayerGameType()
             {
                 GameMode = gameMode
             };
             Send(packet);
+            SendAbilities();
+
+            var adventureSettingsPacket = new UpdateAdventureSettings
+            {
+                ImmutableWorld = isAdventure,
+                noPvM = false,
+                noMvP = false,
+                ShowNameTags = true,
+                AutoJump = true
+            };
+            Send(adventureSettingsPacket);
         }
 
         public void SendAbilities(byte playerPermissions = 3, byte commandPermissions = 0)

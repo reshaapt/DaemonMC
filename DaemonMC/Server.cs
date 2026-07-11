@@ -1,8 +1,11 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using DaemonMC.Blocks;
+using DaemonMC.Commands;
 using DaemonMC.Items;
 using DaemonMC.Level;
+using DaemonMC.Loader.Commands;
+using DaemonMC.Loader.CreativeContent;
 using DaemonMC.Network;
 using DaemonMC.Network.RakNet;
 using DaemonMC.Plugin;
@@ -62,6 +65,9 @@ namespace DaemonMC
             CommandManager.RegisterBuiltinCommands();
 
             PluginManager.LoadPlugins("Plugins");
+            
+            CreativeContentLoader.Load();
+            CommandLoader.Load();
 
             CreativeContentManager.Init();
 
