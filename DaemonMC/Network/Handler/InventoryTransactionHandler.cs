@@ -1,6 +1,7 @@
 ﻿using DaemonMC.Items;
 using DaemonMC.Network.Bedrock;
 using DaemonMC.Network.Enumerations;
+using DaemonMC.Network.Enumerations.Inventory;
 using DaemonMC.Plugin;
 using DaemonMC.Utils.Game;
 using DaemonMC.Utils.Text;
@@ -17,7 +18,7 @@ namespace DaemonMC.Network.Handler
 
                 if (action.Source.ContainerName.ContainerName == ContainerEnumName.HotbarContainer || action.Source.ContainerName.ContainerName == ContainerEnumName.InventoryContainer) //player inventory
                 {
-                    sourceItem = player.Inventory.Get(action.Source.Slot);
+                    sourceItem = player.Inventory.GetItem(action.Source.Slot);
                 }
                 else if (action.Source.ContainerName.ContainerName == ContainerEnumName.CreatedOutputContainer)
                 {
@@ -59,7 +60,7 @@ namespace DaemonMC.Network.Handler
                     destinationItem = sourceItem;
                 }
 
-                player.Inventory.Set(ContainerId.Inventory, action.Source.Slot, destinationItem);
+                player.Inventory.SetItem(action.Source.Slot, destinationItem);
                 Log.debug($"[TakeAction] Cursor have now {cursorItem.Count} {cursorItem.Name}. Source slot {action.Source.Slot} have now {destinationItem.Count} {destinationItem.Name}");
             }
             else
@@ -88,7 +89,7 @@ namespace DaemonMC.Network.Handler
                     return;
                 }
 
-                Item destinationItem = player.Inventory.Get(action.Destination.Slot);
+                Item destinationItem = player.Inventory.GetItem(action.Destination.Slot);
                 var count = action.Amount;
 
                 Log.debug($"[PlaceAction] Requested {count} items from inventory {action.Source.ContainerName.ContainerName} {action.Source.Slot} slot that have {sourceItem.Count} {sourceItem.Name}");
@@ -131,7 +132,7 @@ namespace DaemonMC.Network.Handler
                     player.Inventory.Cursor = sourceItem;
                 }
 
-                player.Inventory.Set(ContainerId.Inventory, action.Destination.Slot, destinationItem);
+                player.Inventory.SetItem(action.Destination.Slot, destinationItem);
                 Log.debug($"[PlaceAction] {action.Source.ContainerName.ContainerName} {action.Source.Slot} slot have now {sourceItem.Count} {sourceItem.Name}. Destination slot {action.Destination.Slot} have now {destinationItem.Count} {destinationItem.Name}");
             }
             else

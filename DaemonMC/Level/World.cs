@@ -338,7 +338,7 @@ namespace DaemonMC.Level
                     Position = player.Position,
                     Metadata = player.Metadata,
                     Layers = player.Abilities,
-                    Item = player.Inventory.GetHand()
+                    Item = player.Inventory.GetItemInHand()
                 };
                 onlinePlayer.Send(packet);
 
@@ -360,7 +360,7 @@ namespace DaemonMC.Level
                     Position = onlinePlayer.Position,
                     Metadata = onlinePlayer.Metadata,
                     Layers = onlinePlayer.Abilities,
-                    Item = onlinePlayer.Inventory.GetHand()
+                    Item = onlinePlayer.Inventory.GetItemInHand()
                 };
                 player.Send(packet2);
 

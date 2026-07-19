@@ -41,7 +41,7 @@ namespace DaemonMC
         public Dictionary<ActorData, Metadata> Metadata { get; set; } = new Dictionary<ActorData, Metadata>();
         public List<AuthInputData> InputData { get; set; } = new List<AuthInputData>();
         public List<AbilitiesData> Abilities { get; set; } = new List<AbilitiesData>() { new AbilitiesData(1, 262143, new PermissionSet(), 0.05f, 0.1f, 0.1f) };
-        public PlayerInventory Inventory { get; set; }
+        public Inventory.PlayerInventory Inventory { get; set; }
         public Dictionary<Effects, bool> AllEffects { get; set; } = new Dictionary<Effects, bool>();
         public bool Spawned { get; set; } = false;
         public bool HaveBossBar { get; set; } = false;
@@ -51,7 +51,7 @@ namespace DaemonMC
         public Player()
         {
             _player = new PlayerUtils(this);
-            Inventory = new PlayerInventory(this);
+            Inventory = new Inventory.PlayerInventory(this);
         }
 
         internal void spawn()
@@ -888,24 +888,13 @@ namespace DaemonMC
                 Log.debug($"{Username} interacted id:{interact.Action} at {interact.InteractPosition}");
                 if (interact.Action == 6)
                 {
-                    var pk = new ContainerOpen
-                    {
-                        ContainerId = 0,
-                        ContainerType = 255,
-                        EntityId = EntityID
-                    };
-                    Send(pk);
+                    Inventory.Open(this);
                 }
             }
 
             if (packet is ContainerClose containerClose)
             {
-                var pk = new ContainerClose
-                {
-                    ContainerId = 0,
-                    ContainerType = 255,
-                };
-                Send(pk);
+                Inventory.Close(this);
             }
 
             if (packet is Emote emote)
@@ -937,22 +926,15 @@ namespace DaemonMC
 
             if (packet is MobEquipment mobEquipment)
             {
-                if (Inventory.Inventory.TryGetValue(mobEquipment.Slot, out var expectedItem))
+                if (Inventory.TryGetItem(mobEquipment.Slot, out var expectedItem))
                 {
                     if (expectedItem.Name != mobEquipment.Item.Name)
                     {
-                        Log.warn($"{mobEquipment.EntityId} Inventory mismatch. Expected {Inventory.Inventory[mobEquipment.Slot].Name}, player have {mobEquipment.Item.Name}. Resending item from server side inventory...");
-                        Inventory.Send(0, mobEquipment.Slot, expectedItem);
+                        Log.warn($"{mobEquipment.EntityId} Inventory mismatch. Expected {Inventory.Slots[mobEquipment.Slot].Name}, player have {mobEquipment.Item.Name}. Resending item from server side inventory...");
+                        Inventory.SetItem(mobEquipment.Slot, expectedItem);
                     }
                     Log.debug($"{mobEquipment.EntityId} holding {mobEquipment.Item.Name} in slot {mobEquipment.Slot}");
-                    Inventory.HandSlot = mobEquipment.Slot;
-                    var pk1 = new MobEquipment
-                    {
-                        EntityId = mobEquipment.EntityId,
-                        Item = expectedItem,
-                        Slot = 0,
-                    };
-                    CurrentWorld.Send(pk1, EntityID);
+                    Inventory.SetHandSlot(mobEquipment.Slot);
                 }
                 else
                 {

@@ -34,6 +34,12 @@ namespace DaemonMC.Utils.Game
 
     public class FullContainerName
     {
+        public FullContainerName(ContainerEnumName containerName = 0, int? dynamicId = 0)
+        {
+            ContainerName = containerName;
+            DynamicId = dynamicId;
+        }
+        
         public ContainerEnumName ContainerName { get; set; } = 0;
         public int? DynamicId { get; set; } = 0;
     }
